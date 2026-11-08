@@ -25,7 +25,8 @@
 
 ### Release
 
-- Windows 10/11 x64 NSIS 安装包 `v0.2.1`，由 GitHub Actions `windows-latest` 构建；未签名。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.2.1`，约 **1.83 MiB**（1,914,404 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`9d4f05dc4c7686b54717c9cc5e57f98b797b1363083769109cedf4170867b7db`。
 - 旧 `v0.2.0` 安装包仍保留，下载链接会随仓库改名重定向。
 
 ## [0.2.0] - 2026-11-08
