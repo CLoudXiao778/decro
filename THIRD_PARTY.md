@@ -25,3 +25,5 @@ Decro 是非官方重制，感谢 **Cirro 原项目**（https://github.com/Thrip
 - **nsis_tauri_utils.dll** from the Tauri project — MIT licensed. Vendored only under
   `.github/nsis/` so GitHub Actions can recover when the upstream NSIS plugin download
   returns a transient 504. SHA1: `75197FEE3C6A814FE035788D1C34EAD39349B860`.
+- **NSIS 3.13** — zlib/libpng licensed. Vendored as `nsis-3.13.zip` solely for the
+  GitHub Actions NSIS cache. SHA1: `DB14F8AF2EA346B786C6AE19343F61AAF5E09B8E`.

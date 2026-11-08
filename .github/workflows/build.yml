@@ -34,27 +34,27 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build Tauri bundle
+      - name: Prepare NSIS toolchain
         shell: pwsh
         run: |
-          # Tauri downloads the NSIS toolchain from GitHub releases on the first
-          # run. A transient 504 should not fail the whole release. If the NSIS
-          # zip extracted but the plugin DLL download failed, restore the
-          # SHA1-verified Tauri plugin from the repo and retry the bundle.
+          # GitHub's release CDN occasionally returns 504 for the Tauri NSIS
+          # assets. Restore the SHA1-verified toolchain from the repo so a
+          # release build does not depend on that download.
           $nsisRoot = Join-Path $env:LOCALAPPDATA "tauri\NSIS"
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            npx tauri build --bundles nsis
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($attempt -eq 3) { exit $LASTEXITCODE }
-            if (Test-Path (Join-Path $nsisRoot "NSIS.exe")) {
-              $additional = Join-Path $nsisRoot "Plugins\x86-unicode\additional"
-              New-Item -ItemType Directory -Force -Path $additional | Out-Null
-              Copy-Item ".github/nsis/nsis_tauri_utils.dll" (Join-Path $additional "nsis_tauri_utils.dll") -Force
-              Write-Host "Restored cached NSIS plugin DLL."
-            }
-            Write-Host "Tauri bundle failed (attempt $attempt), retrying in 20s..."
-            Start-Sleep -Seconds 20
+          if (-not (Test-Path (Join-Path $nsisRoot "NSIS.exe"))) {
+            if (Test-Path $nsisRoot) { Remove-Item -Recurse -Force $nsisRoot }
+            $toolsRoot = Split-Path $nsisRoot -Parent
+            New-Item -ItemType Directory -Force -Path $toolsRoot | Out-Null
+            Expand-Archive -Path ".github/nsis/nsis-3.13.zip" -DestinationPath $toolsRoot -Force
+            Move-Item (Join-Path $toolsRoot "nsis-3.13") $nsisRoot -Force
           }
+          $additional = Join-Path $nsisRoot "Plugins\x86-unicode\additional"
+          New-Item -ItemType Directory -Force -Path $additional | Out-Null
+          Copy-Item ".github/nsis/nsis_tauri_utils.dll" (Join-Path $additional "nsis_tauri_utils.dll") -Force
+          Write-Host "NSIS toolchain ready."
+
+      - name: Build Tauri bundle
+        run: npx tauri build --bundles nsis
 
       - name: Check installer size
         shell: pwsh
