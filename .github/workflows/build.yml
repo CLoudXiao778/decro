@@ -35,7 +35,17 @@ jobs:
         run: npm run build
 
       - name: Build Tauri bundle
-        run: npx tauri build --bundles nsis
+        shell: pwsh
+        run: |
+          # Tauri downloads the NSIS toolchain from GitHub releases on the first
+          # run. A transient 504 should not fail the whole release.
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            npx tauri build --bundles nsis
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -eq 3) { exit $LASTEXITCODE }
+            Write-Host "Tauri bundle failed (attempt $attempt), retrying in 20s..."
+            Start-Sleep -Seconds 20
+          }
 
       - name: Check installer size
         shell: pwsh
