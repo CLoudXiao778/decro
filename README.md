@@ -8,6 +8,13 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 ![status](https://img.shields.io/badge/status-style%20prototype-c92027)
 ![stack](https://img.shields.io/badge/stack-Tauri%202%20%2B%20Rust%20%2B%20SolidJS-1b1d20)
 
+## 下载
+
+- **Windows 10/11 x64 安装包**：[Cirro Desktop 0.1.0 (NSIS .exe)](https://github.com/CLoudXiao778/cirro-desktop/releases/download/v0.1.0/Cirro.Desktop_0.1.0_x64-setup.exe)
+- 安装包约 **1.5 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
+- 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
+- 这是 **0.1.0 视觉原型**：界面与动效可体验，数据为 mock，尚未接入网易云登录/播放。
+
 ## 当前状态
 
 - **阶段**：0.1.0 · 风格原型

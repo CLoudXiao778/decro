@@ -41,6 +41,12 @@
 - 文档：APK 分析、设计系统、动效系统、桌面适配、架构、构建。
 - `README.md`、`CHANGELOG.md`、`docs/`。
 
+### Release
+
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.1.0`，约 1.53 MiB。
+- 安装包由 GitHub Actions `windows-latest` 构建，产物通过体积检查后上传 Release；安装包未签名。
+- 当前仅包含视觉原型与 mock 数据；网易云登录、API 与真实播放尚未接入。
+
 ### Notes
 
 - 对比 APK 的 alpha 分支，部分内部动效（例如细胞分裂式 dock、逐字歌词）尚未实现。
