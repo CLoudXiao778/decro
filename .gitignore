@@ -1,0 +1,15 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+release/
+*.log
+*.apk
+*.APK
+*.msi
+*.exe
+
+# Real-device screenshots are kept locally for design study only.
+# They contain third-party album artwork and listening history, so they are
+# intentionally excluded from the public repository.
+docs/screenshots/apk/

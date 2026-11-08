@@ -1,0 +1,203 @@
+/* Cirro Desktop — design tokens
+ * Values are ported from the Cirro Android palette and shape/motion tokens.
+ * This file is the single source of truth for the visual language.
+ */
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter_display_regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter_medium.ttf") format("truetype");
+  font-weight: 500 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter_bold.ttf") format("truetype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Brand */
+  --brand: #c92027;
+  --brand-bright: #ff645d;
+  --brand-deep: #8b000f;
+  --brand-soft: #ffd2cc;
+  --splash: #f51f43;
+  --splash-ink: #fffaf6;
+
+  /* Dark surfaces (Cirro dark roles) */
+  --bg: #000000;
+  --surface: #0a0a0b;
+  --surface-lowest: #000000;
+  --surface-low: #101011;
+  --surface-container: #1b1c1e;
+  --surface-container-high: #2a2b2e;
+  --surface-container-highest: #3a3b3f;
+  --surface-variant: #242528;
+  --surface-bright: #3a3b3f;
+  --on-surface: #f5f5f7;
+  --on-surface-2: #c7c7cc;
+  --on-surface-3: #8e8e93;
+  --outline: #7c8087;
+  --outline-variant: #2d3036;
+  --primary: #ff645d;
+  --on-primary: #320002;
+  --primary-container: #8b000f;
+  --on-primary-container: #ffd2cc;
+  --secondary: #b1bfd3;
+  --secondary-container: #242e3e;
+  --on-secondary-container: #d1dfe4;
+  --tertiary: #e3b56d;
+  --error: #ffa18f;
+  --error-container: #5a0900;
+  --success: #7dd3a7;
+  --info: #7aa9f0;
+
+  /* Semantic overlays */
+  --scrim: rgba(0, 0, 0, 0.52);
+  --scrim-soft: rgba(0, 0, 0, 0.32);
+  --ink-on-image: #ffffff;
+  --ink-on-image-muted: rgba(255, 255, 255, 0.88);
+  --ink-watermark: rgba(255, 255, 255, 0.28);
+  --hairline: rgba(255, 255, 255, 0.075);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+  --card: rgba(255, 255, 255, 0.065);
+  --card-hover: rgba(255, 255, 255, 0.105);
+  --glass: rgba(28, 29, 31, 0.82);
+  --glass-strong: rgba(28, 29, 31, 0.92);
+
+  /* Current track accent — overwritten at runtime */
+  --accent: #ff645d;
+  --accent-2: #e3b56d;
+  --accent-3: #6b3fa0;
+  --accent-ink: #1b0b0e;
+
+  /* Shape tokens */
+  --r-capsule: 22px;
+  --r-card: 20px;
+  --r-card-sm: 16px;
+  --r-feature: 26px;
+  --r-chip: 8px;
+  --r-badge: 2px;
+  --r-sheet: 28px;
+  --r-window: 14px;
+  --r-pill: 999px;
+
+  /* Typography */
+  --font: "Inter", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI",
+    "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+  --text-display: 36px;
+  --text-hero: 44px;
+  --leading-tight: 1.16;
+  --leading-normal: 1.45;
+  --leading-loose: 1.7;
+
+  /* Layout */
+  --titlebar-h: 48px;
+  --sidebar-w: 248px;
+  --sidebar-collapsed-w: 76px;
+  --rail-w: 332px;
+  --dock-h: 72px;
+  --content-pad: 32px;
+
+  /* Motion — Cirro Motion.kt */
+  --ease-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.33, 0, 0.33, 1);
+  --dur-micro: 140ms;
+  --dur-standard: 200ms;
+  --dur-nav: 220ms;
+  --dur-shell: 420ms;
+  --dur-shell-close: 320ms;
+  --dur-shared: 360ms;
+  --dur-splash-wrap: 190ms;
+  --dur-splash-draw: 880ms;
+  --dur-splash-fill: 340ms;
+  --dur-splash-exit: 380ms;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18), 0 6px 18px rgba(0, 0, 0, 0.12);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.24), 0 18px 48px rgba(0, 0, 0, 0.26);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.32), 0 40px 100px rgba(0, 0, 0, 0.4);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #e9edf3;
+  --surface: #f6f9fd;
+  --surface-lowest: #ffffff;
+  --surface-low: #f4f6fa;
+  --surface-container: #f0f2f7;
+  --surface-container-high: #e9ecf1;
+  --surface-container-highest: #e0e3e8;
+  --surface-variant: #e2e5ec;
+  --surface-bright: #fafcff;
+  --on-surface: #030305;
+  --on-surface-2: #52555c;
+  --on-surface-3: #69707a;
+  --outline: #60636a;
+  --outline-variant: #babec5;
+  --primary: #c92027;
+  --on-primary: #ffffff;
+  --primary-container: #ffd2cc;
+  --on-primary-container: #5c0007;
+  --secondary: #3d4859;
+  --secondary-container: #d1dfe4;
+  --on-secondary-container: #242e3e;
+  --tertiary: #604100;
+  --error: #871300;
+  --success: #1d7a4d;
+  --info: #1f63c0;
+
+  --scrim: rgba(10, 12, 16, 0.38);
+  --scrim-soft: rgba(10, 12, 16, 0.2);
+  --hairline: rgba(0, 0, 0, 0.075);
+  --hairline-strong: rgba(0, 0, 0, 0.12);
+  --card: rgba(0, 0, 0, 0.035);
+  --card-hover: rgba(0, 0, 0, 0.055);
+  --glass: rgba(246, 249, 253, 0.8);
+  --glass-strong: rgba(246, 249, 253, 0.93);
+  --shadow-1: 0 1px 2px rgba(20, 30, 50, 0.1), 0 6px 18px rgba(20, 30, 50, 0.08);
+  --shadow-2: 0 2px 8px rgba(20, 30, 50, 0.12), 0 18px 48px rgba(20, 30, 50, 0.14);
+  --shadow-3: 0 8px 28px rgba(20, 30, 50, 0.16), 0 40px 100px rgba(20, 30, 50, 0.2);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --accent-ink: #1b0b0e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-micro: 0ms;
+    --dur-standard: 0ms;
+    --dur-nav: 0ms;
+    --dur-shell: 0ms;
+    --dur-shell-close: 0ms;
+    --dur-shared: 0ms;
+    --dur-splash-wrap: 0ms;
+    --dur-splash-draw: 0ms;
+    --dur-splash-fill: 0ms;
+    --dur-splash-exit: 0ms;
+  }
+}
