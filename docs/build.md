@@ -116,7 +116,7 @@ jobs:
 | Tauri/Rust exe（strip + LTO + opt-level=z） | 4–6 MB |
 | Web 资源（JS/CSS/字体子集/图标） | 0.6–1.2 MB |
 | SQLite + libnetease + QR | 1.5–2.5 MB |
-| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.1.0 实测 1.53 MiB，0.1.1 实测 1.72 MiB，0.2.0 含 axum/reqwest 略增）** |
+| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.1.0 实测 1.53 MiB，0.1.1 实测 1.72 MiB，0.2.0 实测 1.83 MiB）** |
 | 安装后 | 20–35 MB |
 | WebView2 | 系统自带；缺失时引导安装 |
 | ONNX 人声分离 | 不打包；设置页已移除入口 |
