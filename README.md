@@ -11,7 +11,7 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 ## 下载
 
 - **Windows 10/11 x64 安装包**：[Cirro Desktop 0.1.1 (NSIS .exe)](https://github.com/CLoudXiao778/cirro-desktop/releases/download/v0.1.1/Cirro.Desktop_0.1.1_x64-setup.exe)
-- 安装包保持轻量（15 MB 预算内，具体体积见 Release 页面）；未签名，首次运行可能触发 SmartScreen 提示。
+- 安装包约 **1.72 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
 - 这是 **0.1.1 视觉原型**：界面与动效可体验，已接入真实网易云扫码登录；曲库与播放仍为 mock。
 

@@ -66,7 +66,7 @@ npm run tauri build -- --bundles nsis
 
 产物：
 
-- `src-tauri/target/release/bundle/nsis/*.exe`（0.1.1 产物：`Cirro Desktop_0.1.1_x64-setup.exe`，体积见 CI 日志）
+- `src-tauri/target/release/bundle/nsis/*.exe`（0.1.1 产物：`Cirro Desktop_0.1.1_x64-setup.exe`，约 1.72 MiB）
 - 可选：portable zip（复制 exe + WebView2 引导）
 
 ### GitHub Actions（推荐）
@@ -115,7 +115,7 @@ jobs:
 | Tauri/Rust exe（strip + LTO + opt-level=z） | 4–6 MB |
 | Web 资源（JS/CSS/字体子集/图标） | 0.6–1.2 MB |
 | SQLite + libnetease + QR | 1.5–2.5 MB |
-| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.1.0 实测 1.53 MiB，0.1.1 因 reqwest/TLS 略增）** |
+| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.1.0 实测 1.53 MiB，0.1.1 实测 1.72 MiB）** |
 | 安装后 | 20–35 MB |
 | WebView2 | 系统自带；缺失时引导安装 |
 | ONNX 人声分离 | 不打包；设置页已移除入口 |

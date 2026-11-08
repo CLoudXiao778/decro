@@ -35,7 +35,8 @@
 
 ### Release
 
-- Windows 10/11 x64 NSIS 安装包 `v0.1.1`，由 GitHub Actions `windows-latest` 构建；未签名。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.1.1`，约 **1.72 MiB**，由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`685735c079de8862efcfad217cf99633ff47e3ba45650cb272b54556fb75fc2a`。
 - 扫码步骤需要真实网易云账号手工验收；登录接口为非官方 Web 接口，可能随平台调整而失效。
 
 ## [0.1.0] - 2026-11-08
