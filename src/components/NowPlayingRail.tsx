@@ -18,6 +18,9 @@ export function NowPlayingRail(props: {
   onOpenPlayer: () => void;
   onOpenQueue: () => void;
   onPlayTrack: (track: Track) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  showTranslation: boolean;
 }) {
   const activeIndex = createMemo(() => {
     const lyrics = props.track.lyrics;
@@ -50,6 +53,7 @@ export function NowPlayingRail(props: {
         <CoverArt
           palette={props.track.palette}
           seed={props.track.coverSeed ?? 0}
+          url={props.track.coverUrl}
           showLabel={false}
         />
         <span class="rail-cover__badge">
@@ -74,7 +78,7 @@ export function NowPlayingRail(props: {
           aria-label={props.liked ? "取消喜欢" : "喜欢"}
           onClick={props.onToggleLike}
         >
-          <Icon name={props.liked ? "heart-fill" : "heart"} size={19} />
+          <Icon name={props.liked ? "star-fill" : "star"} size={19} />
         </button>
       </div>
 
@@ -108,7 +112,7 @@ export function NowPlayingRail(props: {
                   onClick={props.onOpenPlayer}
                 >
                   <p>{line.text}</p>
-                  <Show when={line.translation}>
+                  <Show when={props.showTranslation && line.translation}>
                     <p class="rail-lyric__tr">{line.translation}</p>
                   </Show>
                 </div>
@@ -141,7 +145,7 @@ export function NowPlayingRail(props: {
                 >
                   <span class="num">{index() + 1}</span>
                   <span class="rail-queue__thumb">
-                    <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} showLabel={false} />
+                    <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} url={track.coverUrl} showLabel={false} />
                   </span>
                   <span class="rail-queue__meta">
                     <b>{track.title}</b>
@@ -157,7 +161,7 @@ export function NowPlayingRail(props: {
         <Show when={props.tab === "info"}>
           <div class="rail-info">
             <div class="rail-info__cover">
-              <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} showLabel={false} />
+              <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} url={props.track.coverUrl} showLabel={false} />
             </div>
             <dl>
               <div>
@@ -183,13 +187,13 @@ export function NowPlayingRail(props: {
       </div>
 
       <div class="rail-footer">
-        <button class="icon-btn" aria-label="上一首">
+        <button class="icon-btn" aria-label="上一首" onClick={props.onPrev}>
           <Icon name="prev" size={18} />
         </button>
         <button class="play-btn play-btn--rail" aria-label={props.playing ? "暂停" : "播放"} onClick={props.onTogglePlay}>
           <Icon name={props.playing ? "pause-fill" : "play-fill"} size={19} />
         </button>
-        <button class="icon-btn" aria-label="下一首">
+        <button class="icon-btn" aria-label="下一首" onClick={props.onNext}>
           <Icon name="next" size={18} />
         </button>
         <button class="icon-btn" aria-label="播放队列" onClick={props.onOpenQueue}>

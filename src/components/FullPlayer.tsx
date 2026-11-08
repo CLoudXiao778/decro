@@ -42,8 +42,16 @@ function WaveProgress(props: {
         if (event.buttons & 1) seek(event);
       }}
       onKeyDown={(event) => {
-        if (event.key === "ArrowRight") props.onSeek(Math.min(props.duration, props.value + 5));
-        if (event.key === "ArrowLeft") props.onSeek(Math.max(0, props.value - 5));
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onSeek(Math.min(props.duration, props.value + 5));
+        }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onSeek(Math.max(0, props.value - 5));
+        }
       }}
     >
       <span class="wave-progress__line" style={{ left: `${fraction() * 100}%` }} />
@@ -72,6 +80,7 @@ export function FullPlayer(props: {
   onVolume: (value: number) => void;
   onToggleLike: () => void;
   onPlayTrack: (track: Track) => void;
+  showTranslation: boolean;
 }) {
   const [visible, setVisible] = createSignal(false);
   const [expanded, setExpanded] = createSignal(false);
@@ -88,6 +97,7 @@ export function FullPlayer(props: {
   let lyricsInner!: HTMLDivElement;
   let cloneAnim: Animation | null = null;
   let fallbackTimer: number | undefined;
+  let closeTimer: number | undefined;
 
   const activeIndex = createMemo(() => {
     const lines = props.track.lyrics;
@@ -158,6 +168,7 @@ export function FullPlayer(props: {
   }
 
   function openPlayer() {
+    window.clearTimeout(closeTimer);
     const rects = readRects();
     setSourceDock(rects.dock);
     setSourceCover(rects.cover);
@@ -199,8 +210,12 @@ export function FullPlayer(props: {
     const src = sourceCover() ?? sourceDock();
     if (dest && src) {
       setHeroReady(false);
-      runClone(src, dest, true).then(() => setVisible(false));
-      window.setTimeout(() => setVisible(false), 340);
+      runClone(src, dest, true).then(() => {
+        if (!props.open) setVisible(false);
+      });
+      closeTimer = window.setTimeout(() => {
+        if (!props.open) setVisible(false);
+      }, 340);
     } else {
       setVisible(false);
     }
@@ -230,6 +245,7 @@ export function FullPlayer(props: {
 
   const onKey = (event: KeyboardEvent) => {
     if (!props.open) return;
+    if (document.querySelector(".command-layer")) return;
     if (event.key === "Escape") {
       event.preventDefault();
       props.onClose();
@@ -245,6 +261,7 @@ export function FullPlayer(props: {
     window.removeEventListener("keydown", onKey);
     cloneAnim?.cancel();
     window.clearTimeout(fallbackTimer);
+    window.clearTimeout(closeTimer);
   });
 
   const paletteStyle = () => ({
@@ -278,7 +295,7 @@ export function FullPlayer(props: {
       >
         <div class="player-backdrop" aria-hidden="true">
           <div class="player-backdrop__cover">
-            <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} showLabel={false} />
+            <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} url={props.track.coverUrl} showLabel={false} />
           </div>
           <div class="player-backdrop__shade" />
           <div class="player-backdrop__grain" />
@@ -317,6 +334,7 @@ export function FullPlayer(props: {
               <CoverArt
                 palette={props.track.palette}
                 seed={props.track.coverSeed ?? 0}
+                url={props.track.coverUrl}
                 showLabel={false}
               />
               <span class="player-cover__glass" />
@@ -324,7 +342,7 @@ export function FullPlayer(props: {
               <span class="player-cover__caption">
                 <span>{props.track.album}</span>
                 <i />
-                <span>2026</span>
+                <span>网易云音乐</span>
               </span>
               <span class="player-cover__hint">
                 <Icon name="lyrics" size={16} />
@@ -367,7 +385,7 @@ export function FullPlayer(props: {
                     {(line, i) => (
                       <div class="player-lyric" classList={{ "is-active": i() === activeIndex() }}>
                         <p>{line.text}</p>
-                        <Show when={line.translation}>
+                        <Show when={props.showTranslation && line.translation}>
                           <p class="player-lyric__tr">{line.translation}</p>
                         </Show>
                       </div>
@@ -463,7 +481,7 @@ export function FullPlayer(props: {
                 >
                   <span class="num">{index() + 1}</span>
                   <span class="player-queue__thumb">
-                    <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} showLabel={false} />
+                    <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} url={track.coverUrl} showLabel={false} />
                   </span>
                   <span class="player-queue__meta">
                     <b>{track.title}</b>
@@ -478,7 +496,7 @@ export function FullPlayer(props: {
       </div>
 
       <div ref={clone} class="morph-cover" aria-hidden="true" style={{ visibility: "hidden" }}>
-        <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} showLabel={false} />
+        <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} url={props.track.coverUrl} showLabel={false} />
       </div>
     </>
   );

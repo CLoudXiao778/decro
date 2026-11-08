@@ -1,5 +1,4 @@
-import { createSignal, Show } from "solid-js";
-import { audioQualities } from "../data/mock";
+import { Show } from "solid-js";
 import { Icon } from "../components/Icon";
 import type { Account } from "../lib/auth";
 
@@ -37,17 +36,14 @@ export function SettingsPage(props: {
   onClose: () => void;
   lowPower: boolean;
   onLowPower: (value: boolean) => void;
+  coverAccent: boolean;
+  onCoverAccent: (value: boolean) => void;
+  showTranslation: boolean;
+  onShowTranslation: (value: boolean) => void;
   account: Account | null;
   onLogin: () => void;
   onLogout: () => void;
 }) {
-  const [quality, setQuality] = createSignal("标准");
-  const [volumeBalance, setVolumeBalance] = createSignal(true);
-  const [listBlur, setListBlur] = createSignal(true);
-  const [oneTake, setOneTake] = createSignal(true);
-  const [coverAccent, setCoverAccent] = createSignal(true);
-  const [lyricsBlur, setLyricsBlur] = createSignal(true);
-  const [translation, setTranslation] = createSignal(true);
 
   return (
     <div class="page page--settings-source">
@@ -94,60 +90,18 @@ export function SettingsPage(props: {
             <b>封面取色</b>
             <small>让播放页的环境光跟随当前封面。</small>
           </span>
-          <Toggle checked={coverAccent()} onChange={setCoverAccent} label="封面取色" />
-        </div>
-        <div class="settings-source-row">
-          <span class="settings-source-row__text">
-            <b>列表渐变模糊</b>
-            <small>在搜索页顶部显示渐变模糊。</small>
-          </span>
-          <Toggle checked={listBlur()} onChange={setListBlur} label="列表渐变模糊" />
-        </div>
-        <div class="settings-source-row">
-          <span class="settings-source-row__text">
-            <b>一镜到底动画</b>
-            <small>让卡片展开与页面切换自然衔接。</small>
-          </span>
-          <Toggle checked={oneTake()} onChange={setOneTake} label="一镜到底动画" />
-        </div>
-      </div>
-
-      <div class="settings-group-label">音频</div>
-      <div class="settings-source-list">
-        <button class="settings-source-row" onClick={() => setQuality(audioQualities[(audioQualities.indexOf(quality()) + 1) % audioQualities.length])}>
-          <span class="settings-source-row__text">
-            <b>音频质量</b>
-          </span>
-          <Picker value={quality()} />
-        </button>
-        <div class="settings-source-row">
-          <span class="settings-source-row__text">
-            <b>音量平衡</b>
-            <small>自动将歌曲播放音量调节到相同水平。</small>
-          </span>
-          <Toggle checked={volumeBalance()} onChange={setVolumeBalance} label="音量平衡" />
+          <Toggle checked={props.coverAccent} onChange={props.onCoverAccent} label="封面取色" />
         </div>
       </div>
 
       <div class="settings-group-label">歌词</div>
       <div class="settings-source-list">
         <div class="settings-source-row">
-          <span class="settings-source-row__text"><b>歌词模糊</b></span>
-          <Toggle checked={lyricsBlur()} onChange={setLyricsBlur} label="歌词模糊" />
-        </div>
-        <button class="settings-source-row">
-          <span class="settings-source-row__text">
-            <b>Apple Music 已订阅账号</b>
-            <small>登录后可从 Apple Music 获取歌词</small>
-          </span>
-          <Icon name="chevron-right" size={22} class="settings-source-row__chevron" />
-        </button>
-        <div class="settings-source-row">
           <span class="settings-source-row__text">
             <b>显示翻译</b>
             <small>在歌词下方显示可用翻译。</small>
           </span>
-          <Toggle checked={translation()} onChange={setTranslation} label="显示翻译" />
+          <Toggle checked={props.showTranslation} onChange={props.onShowTranslation} label="显示翻译" />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
 
 export function BrandMark(props: { size?: number; class?: string; splash?: boolean }) {
   const size = () => props.size ?? 24;
@@ -33,8 +33,11 @@ export function CoverArt(props: {
   class?: string;
   label?: string;
   showLabel?: boolean;
+  url?: string;
 }) {
   const seed = () => props.seed ?? 0;
+  const [failed, setFailed] = createSignal(false);
+  createEffect(on(() => props.url, () => setFailed(false)));
   return (
     <div
       class={`cover-art ${props.class ?? ""}`}
@@ -52,6 +55,16 @@ export function CoverArt(props: {
       <div class="cover-art__blob cover-art__blob--b" />
       <div class="cover-art__blob cover-art__blob--c" />
       <div class="cover-art__grain" />
+      <Show when={props.url && !failed()}>
+        <img
+          class="cover-art__img"
+          src={props.url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      </Show>
       {props.showLabel !== false && (
         <div class="cover-art__label">
           <span>{props.label ?? "CIRRO"}</span>

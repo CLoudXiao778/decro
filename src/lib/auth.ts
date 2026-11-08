@@ -52,6 +52,14 @@ export async function logout(): Promise<void> {
   await invoke("logout");
 }
 
+/** Fallback for networks where NetEase risk-control blocks the QR flow. */
+export async function importCookie(cookie: string): Promise<Account> {
+  if (!isTauri()) {
+    throw new Error("浏览器预览无法导入登录凭证，请在安装后的 Windows 客户端操作");
+  }
+  return invoke<Account>("import_cookie", { cookie });
+}
+
 export function qrDataUrl(text: string): Promise<string> {
   return QRCode.toDataURL(text, {
     width: 512,

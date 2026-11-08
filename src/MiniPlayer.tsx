@@ -47,7 +47,7 @@ export function MiniPlayer() {
             aria-label={liked() ? "取消喜欢" : "喜欢"}
             onClick={() => setLiked((value) => !value)}
           >
-            <Icon name={liked() ? "heart-fill" : "heart"} size={16} />
+            <Icon name={liked() ? "star-fill" : "star"} size={16} />
           </button>
           <button class="icon-btn" aria-label="上一首">
             <Icon name="prev" size={17} />

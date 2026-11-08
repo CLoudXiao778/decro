@@ -1,27 +1,34 @@
 # Cirro Desktop
 
 > 一个面向 Windows 的、非官方的 Cirro 桌面重制版。
-> 当前阶段的重点是 **视觉语言与动效一致性**，不是功能对齐。
+> 以 **Cirro 的视觉语言与动效** 为核心，同时提供可用的扫码登录、在线曲库、搜索与播放。
 
 Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风格：品牌红、流体渐变、玻璃浮层、封面取色、胶囊形 dock、从卡片连续长成全屏播放页的动效，以及逐行/逐字歌词。这个项目把同一套语言搬到桌面，而不是把手机比例放大。
 
-![status](https://img.shields.io/badge/status-visual%20prototype%20%2B%20QR%20login-c92027)
+![status](https://img.shields.io/badge/status-online%20catalog%20%2B%20playback-c92027)
 ![stack](https://img.shields.io/badge/stack-Tauri%202%20%2B%20Rust%20%2B%20SolidJS-1b1d20)
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Cirro Desktop 0.1.1 (NSIS .exe)](https://github.com/CLoudXiao778/cirro-desktop/releases/download/v0.1.1/Cirro.Desktop_0.1.1_x64-setup.exe)
-- 安装包约 **1.72 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
+- **Windows 10/11 x64 安装包**：[Cirro Desktop 0.2.0 (NSIS .exe)](https://github.com/CLoudXiao778/cirro-desktop/releases/download/v0.2.0/Cirro.Desktop_0.2.0_x64-setup.exe)
+- 安装包体积见 Release 页面；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.1.1 视觉原型**：界面与动效可体验，已接入真实网易云扫码登录；曲库与播放仍为 mock。
+- 这是 **0.2.0 在线曲库版**：扫码登录后可读取你的歌单、最近播放与每日推荐，并直接播放网易云音源。
 
 ## 当前状态
 
-- **阶段**：0.1.1 · 风格原型 + 扫码登录
+- **阶段**：0.2.0 · 扫码登录 + 在线曲库 + 播放
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
-- 已完成：桌面标题栏、图标侧栏、底部迷你播放器、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
-- 0.1.1 新增：真实网易云扫码登录（登录态由 Windows DPAPI 加密保存在本机）、低配自动性能模式、播放/暂停波形 180ms 交叉淡入淡出；设置页不再展示人声分离入口。
-- 数据目前来自本地 mock；登录只用于账号身份展示，尚未接入网易云曲库、歌单或播放。
+- 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.2.0 实装**：
+  - 网易云扫码登录（新版 `type=3` 桌面接口），登录态由 Windows DPAPI 加密保存在本机；二维码被风控时支持网页版 Cookie 导入。
+  - 在线首页：推荐歌单、新歌速递、每日推荐、最近播放。
+  - 资料库：我的歌单、收藏歌单、我喜欢的音乐、最近播放。
+  - 搜索：在线歌曲与歌单，结果可直接播放或打开。
+  - 播放：Rust 本地音频代理、Range/seek、播放/暂停、上一首/下一首、队列、音量、进度、真实歌词、喜欢/取消喜欢。
+  - 低配自动性能模式（4 线程及以下 CPU 默认开启）、500ms 波形播放/暂停交叉淡入淡出。
+- 在线数据来自网易云非官方 Web 接口；评论、下载、播客/MV、云盘、听歌上报尚未接入。
+- `?mini` 仍是浏览器预览；安装版点击迷你按钮会提示“下一版接入播放同步”。
 - 最终目标：Tauri 2 + Rust 后端 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
 
 ### 源版本参考
@@ -38,7 +45,7 @@ alpha42 真机截图只保存在本地 `docs/screenshots/apk/`，用于设计研
 |---|---|
 | ![player](docs/screenshots/player.png) | ![detail](docs/screenshots/detail.png) |
 
-| Splash | 迷你播放器 |
+| Splash | 迷你播放器（预览） |
 |---|---|
 | ![splash](docs/screenshots/splash.png) | ![mini](docs/screenshots/mini-player.png) |
 
@@ -76,10 +83,10 @@ npm run tauri dev   # 需要 Rust、WebView2 与 Windows（或 Linux WebKitGTK�
 src/
   components/     # 壳、标题栏、dock、播放页、图标、封面、进度条
   pages/          # 主页 / 分类 / 资料库 / 搜索 / 详情 / 设置
-  data/           # mock 数据（后续替换为 Rust 数据层）
-  lib/            # 时间/插值、扫码登录客户端
+  data/           # 浏览器预览数据
+  lib/            # 扫码登录、在线 API 适配、播放配置、时间/插值
   styles/         # tokens / base / app / pages
-src-tauri/        # Rust 后端：二维码登录、DPAPI 凭证
+src-tauri/        # Rust 后端：登录、在线 API、本地音频代理、DPAPI 凭证
 docs/             # 设计、动效、APK 分析、架构、构建、登录
 public/fonts/     # Inter（OFL）
 ```
@@ -101,8 +108,10 @@ public/fonts/     # Inter（OFL）
 - 这是一个**非官方**项目，与 Cirro 原作者无关。
 - 上游 Cirro 仓库没有提供 LICENSE；本项目不直接复制其代码、Logo、图标或字体资产。图标为自绘 SVG，字体 Inter 使用 OFL 授权。
 - 本仓库的代码以 MIT License 发布；上游的专辑封面、歌词与真机截图不属于本仓库。
-- 网易云音乐接口属于第三方非官方接口，登录与使用风险由使用者自行承担；登录使用官方扫码页，不绕过验证码或风控。
+- 网易云音乐接口属于第三方非官方接口，登录、曲库与播放的可用性由平台策略决定；风险由使用者自行承担。
+- 登录优先使用扫码；若网络被风控，可在登录弹窗内导入网页版 `MUSIC_U` 凭证。应用不绕过验证码、风控或版权限制。
 - 登录凭证只保存在本机 `%APPDATA%`，由 Windows DPAPI 加密；前端与日志都拿不到 Cookie。
+- 音频通过只监听 `127.0.0.1` 的 Rust 代理播放，代理带随机 token；浏览器/前端不直接接触音源签名 URL。
 - 当前没有捆绑任何 ONNX 模型；设置页也已移除人声分离入口。
 
 ## License

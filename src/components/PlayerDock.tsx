@@ -30,7 +30,7 @@ export function PlayerDock(props: {
         aria-label="打开播放页"
         title="打开播放页"
       >
-        <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} showLabel={false} />
+        <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} url={props.track.coverUrl} showLabel={false} />
       </button>
 
       <button class="source-dock__meta" onClick={props.onOpenPlayer} aria-label="打开播放页">

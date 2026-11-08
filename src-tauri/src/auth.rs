@@ -1,30 +1,14 @@
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use serde::Serialize;
+use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
 use crate::secure_store;
+use crate::state::{Account, AppState, API_BASE, INTERFACE_BASE};
 
-const API_BASE: &str = "https://music.163.com";
 const AUTH_FILE: &str = "netease-auth.bin";
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-
-#[derive(Default)]
-pub struct AuthState {
-    cookies: Mutex<Option<String>>,
-    account: Mutex<Option<Account>>,
-    qr_jars: Mutex<BTreeMap<String, BTreeMap<String, String>>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Account {
-    pub user_id: String,
-    pub nickname: String,
-    pub avatar_url: String,
-}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,19 +18,18 @@ pub struct QrStart {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QrPoll {
     pub code: i32,
     pub message: String,
     pub account: Option<Account>,
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(USER_AGENT)
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .timeout(std::time::Duration::from_secs(20))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new())
+fn now_ms() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
 }
 
 fn auth_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -81,6 +64,39 @@ fn clear_cookies(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn cookie_map(cookies: &str) -> BTreeMap<String, String> {
+    let mut map = BTreeMap::new();
+    for part in cookies.split(';') {
+        let Some((name, value)) = part.trim().split_once('=') else {
+            continue;
+        };
+        if !name.trim().is_empty() && !value.trim().is_empty() {
+            map.insert(name.trim().to_string(), value.trim().to_string());
+        }
+    }
+    map
+}
+
+async fn refresh_session_cookies(state: &AppState, cookies: &str) -> String {
+    let mut jar = cookie_map(cookies);
+    if let Ok(response) = state
+        .api
+        .get(API_BASE)
+        .header(reqwest::header::COOKIE, cookies)
+        .header(reqwest::header::REFERER, format!("{API_BASE}/"))
+        .send()
+        .await
+    {
+        merge_set_cookies(response.headers(), &mut jar);
+    }
+    let merged = cookie_header(&jar);
+    if merged.is_empty() {
+        cookies.to_string()
+    } else {
+        merged
+    }
+}
+
 fn cookie_header(map: &BTreeMap<String, String>) -> String {
     map.iter()
         .map(|(k, v)| format!("{k}={v}"))
@@ -105,8 +121,34 @@ fn merge_set_cookies(headers: &reqwest::header::HeaderMap, jar: &mut BTreeMap<St
     }
 }
 
-async fn fetch_account(client: &reqwest::Client, cookies: &str) -> Result<Option<Account>, String> {
-    let response = client
+fn account_from_json(json: &Value) -> Option<Account> {
+    let profile = json.get("profile").unwrap_or(json);
+    let user_id = profile.get("userId").map(|value| match value {
+        Value::Number(number) => number.to_string(),
+        Value::String(text) => text.clone(),
+        _ => String::new(),
+    })?;
+    if user_id.is_empty() {
+        return None;
+    }
+    Some(Account {
+        user_id,
+        nickname: profile
+            .get("nickname")
+            .and_then(Value::as_str)
+            .unwrap_or("网易云用户")
+            .to_string(),
+        avatar_url: profile
+            .get("avatarUrl")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+    })
+}
+
+async fn fetch_account(state: &AppState, cookies: &str) -> Result<Option<Account>, String> {
+    let response = state
+        .api
         .get(format!("{API_BASE}/api/nuser/account/get"))
         .header(reqwest::header::COOKIE, cookies)
         .header(reqwest::header::REFERER, format!("{API_BASE}/"))
@@ -114,48 +156,98 @@ async fn fetch_account(client: &reqwest::Client, cookies: &str) -> Result<Option
         .await
         .map_err(|e| format!("读取账号信息失败: {e}"))?;
 
-    let json: serde_json::Value = response
+    let json: Value = response
         .json()
         .await
         .map_err(|e| format!("账号信息格式异常: {e}"))?;
 
-    let Some(profile) = json.get("profile") else {
-        return Ok(None);
-    };
-    let nickname = profile
-        .get("nickname")
-        .and_then(|v| v.as_str())
-        .unwrap_or("网易云用户")
-        .to_string();
-    let user_id = profile
-        .get("userId")
-        .map(|v| match v {
-            serde_json::Value::Number(n) => n.to_string(),
-            serde_json::Value::String(s) => s.clone(),
-            _ => String::new(),
-        })
-        .unwrap_or_default();
-    let avatar_url = profile
-        .get("avatarUrl")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    Ok(account_from_json(&json))
+}
 
-    if user_id.is_empty() {
-        return Ok(None);
+async fn fetch_account_with_retry(state: &AppState, cookies: &str) -> Option<Account> {
+    for attempt in 0..3 {
+        match fetch_account(state, cookies).await {
+            Ok(Some(account)) => return Some(account),
+            Ok(None) | Err(_) if attempt < 2 => {
+                tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+            }
+            _ => break,
+        }
     }
-    Ok(Some(Account {
-        user_id,
-        nickname,
-        avatar_url,
-    }))
+    None
+}
+
+fn normalize_cookie_input(raw: &str) -> Result<String, String> {
+    if raw.len() > 8192 {
+        return Err("登录凭证过长".to_string());
+    }
+    const ALLOWED: &[&str] = &[
+        "MUSIC_U",
+        "__csrf",
+        "NMTID",
+        "MUSIC_A",
+        "MUSIC_A_T",
+        "MUSIC_R_T",
+        "_ntes_nnid",
+        "_ntes_nuid",
+        "JSESSIONID-WYYY",
+        "WNMCID",
+        "WEVNSM",
+        "_iuqxldmzr_",
+        "WM_NI",
+        "WM_NIKE",
+        "WM_TID",
+    ];
+
+    let trimmed = raw
+        .trim()
+        .trim_start_matches("Cookie:")
+        .trim()
+        .replace(['\r', '\n'], ";");
+    let mut seen = BTreeSet::new();
+    let mut pairs = Vec::new();
+    for part in trimmed.split(';') {
+        let part = part.trim();
+        let Some((name, value)) = part.split_once('=') else {
+            continue;
+        };
+        let name = name.trim();
+        let value = value.trim();
+        if name.is_empty()
+            || value.is_empty()
+            || !ALLOWED.contains(&name)
+            || value.chars().any(char::is_control)
+            || !seen.insert(name.to_string())
+        {
+            continue;
+        }
+        pairs.push(format!("{name}={value}"));
+    }
+
+    let normalized = pairs.join("; ");
+    if !normalized.split(';').any(|part| {
+        part.trim()
+            .strip_prefix("MUSIC_U=")
+            .is_some_and(|value| !value.trim().is_empty())
+    }) {
+        return Err("凭证中缺少 MUSIC_U，请从已登录的网页版复制 MUSIC_U 与 __csrf".to_string());
+    }
+    Ok(normalized)
 }
 
 #[tauri::command]
-pub async fn qr_login_start(state: State<'_, AuthState>) -> Result<QrStart, String> {
-    let response = client()
-        .get(format!("{API_BASE}/api/login/qrcode/unikey?type=1"))
+pub async fn qr_login_start(state: State<'_, AppState>) -> Result<QrStart, String> {
+    let _guard = state.qr_poll_lock.lock().await;
+    let response = state
+        .api
+        .post(format!(
+            "{INTERFACE_BASE}/api/login/qrcode/unikey?timestamp={}",
+            now_ms()
+        ))
         .header(reqwest::header::REFERER, format!("{API_BASE}/"))
+        .header(reqwest::header::ORIGIN, API_BASE)
+        .header(reqwest::header::CACHE_CONTROL, "no-cache")
+        .form(&[("type", "3")])
         .send()
         .await
         .map_err(|e| format!("获取登录二维码失败: {e}"))?;
@@ -163,14 +255,20 @@ pub async fn qr_login_start(state: State<'_, AuthState>) -> Result<QrStart, Stri
     let mut jar = BTreeMap::new();
     merge_set_cookies(response.headers(), &mut jar);
 
-    let json: serde_json::Value = response
+    let json: Value = response
         .json()
         .await
         .map_err(|e| format!("登录二维码格式异常: {e}"))?;
     let unikey = json
         .get("unikey")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "网易云未返回二维码 key，请稍后重试".to_string())?
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            let message = json
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("网易云未返回二维码 key，请稍后重试");
+            message.to_string()
+        })?
         .to_string();
 
     let mut jars = state
@@ -187,12 +285,25 @@ pub async fn qr_login_start(state: State<'_, AuthState>) -> Result<QrStart, Stri
     })
 }
 
+fn poll_message(code: i32, raw: &str) -> String {
+    match code {
+        800 => "二维码已过期，请刷新".to_string(),
+        -462 => "网易要求完成人机验证，请更换网络后重试".to_string(),
+        8821 => "网易要求升级登录方式，请更换网络后重试".to_string(),
+        8810 => "当前网络存在安全风险，请更换网络后重试".to_string(),
+        -460 => "检测到网络环境风险，请稍后再试".to_string(),
+        _ if !raw.is_empty() => raw.to_string(),
+        _ => format!("登录状态异常（{code}），请刷新二维码重试"),
+    }
+}
+
 #[tauri::command]
 pub async fn qr_login_poll(
     app: AppHandle,
-    state: State<'_, AuthState>,
+    state: State<'_, AppState>,
     key: String,
 ) -> Result<QrPoll, String> {
+    let _guard = state.qr_poll_lock.lock().await;
     let jar = state
         .qr_jars
         .lock()
@@ -201,10 +312,12 @@ pub async fn qr_login_poll(
         .cloned()
         .unwrap_or_default();
 
-    let mut request = client()
-        .get(format!("{API_BASE}/api/login/qrcode/client/login"))
-        .query(&[("key", key.as_str()), ("type", "1")])
-        .header(reqwest::header::REFERER, format!("{API_BASE}/"));
+    let mut request = state
+        .api
+        .post(format!("{INTERFACE_BASE}/api/login/qrcode/client/login"))
+        .header(reqwest::header::REFERER, format!("{API_BASE}/"))
+        .header(reqwest::header::ORIGIN, API_BASE)
+        .form(&[("key", key.as_str()), ("type", "3")]);
     if !jar.is_empty() {
         request = request.header(reqwest::header::COOKIE, cookie_header(&jar));
     }
@@ -221,63 +334,98 @@ pub async fn qr_login_poll(
         .unwrap_or_default();
     merge_set_cookies(response.headers(), &mut jar);
 
-    let json: serde_json::Value = response
+    let json: Value = response
         .json()
         .await
         .map_err(|e| format!("登录状态格式异常: {e}"))?;
-    let code = json.get("code").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-    let message = json
-        .get("message")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let code = json.get("code").and_then(Value::as_i64).unwrap_or(0) as i32;
+    let raw_message = json.get("message").and_then(Value::as_str).unwrap_or("");
 
     if code == 803 {
+        let epoch = state.session_epoch();
         let cookies = cookie_header(&jar);
-        let client = client();
-        let Some(account) = fetch_account(&client, &cookies).await? else {
-            return Err("扫码成功，但未能读取账号资料；请重试".to_string());
+        let cookies = if crate::state::cookie_value(&cookies, "__csrf").is_some() {
+            cookies
+        } else {
+            refresh_session_cookies(&state, &cookies).await
         };
-        let saved = save_cookies(&app, &cookies);
-        if let Ok(mut slot) = state.cookies.lock() {
-            *slot = Some(cookies);
+        let mut account = fetch_account_with_retry(&state, &cookies).await;
+        if account.is_none() {
+            account = account_from_json(&json);
         }
-        if let Ok(mut slot) = state.account.lock() {
-            *slot = Some(account.clone());
+        if state.session_epoch() != epoch {
+            return Ok(QrPoll {
+                code,
+                message: "登录状态已变化，请重新扫码".to_string(),
+                account: None,
+            });
         }
+        if !cookies.is_empty() {
+            let _ = save_cookies(&app, &cookies);
+            state.set_session(Some(cookies), account.clone());
+        }
+        let message = if account.is_some() {
+            "登录成功，正在同步你的音乐库".to_string()
+        } else {
+            "登录成功，但账号资料同步较慢；请稍候或重启应用".to_string()
+        };
         return Ok(QrPoll {
             code,
-            message: if saved.is_ok() {
-                "登录成功，已在 Windows 数据保护下保存登录凭证".to_string()
-            } else {
-                "登录成功；凭证未能持久化，本次进程内有效".to_string()
-            },
-            account: Some(account),
+            message,
+            account,
         });
     }
 
     // Session-only cookies are not committed until code 803 + profile success.
-    if code != 800 {
+    if code == 801 || code == 802 {
         state
             .qr_jars
             .lock()
             .map_err(|_| "登录状态锁失败".to_string())?
             .insert(key, jar);
     }
+
     Ok(QrPoll {
         code,
-        message,
+        message: poll_message(code, raw_message),
         account: None,
     })
 }
 
 #[tauri::command]
+pub async fn import_cookie(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    cookie: String,
+) -> Result<Account, String> {
+    let _guard = state.qr_poll_lock.lock().await;
+    let epoch = state.session_epoch();
+    let cookies = normalize_cookie_input(&cookie)?;
+    let cookies = if crate::state::cookie_value(&cookies, "__csrf").is_some() {
+        cookies
+    } else {
+        refresh_session_cookies(&state, &cookies).await
+    };
+    let account = fetch_account_with_retry(&state, &cookies)
+        .await
+        .ok_or_else(|| "凭证已失效，或不是有效的网易云网页版 Cookie".to_string())?;
+    if state.session_epoch() != epoch {
+        return Err("登录状态已变化，请重试".to_string());
+    }
+    // Persistence may be unavailable on non-Windows dev builds; the session
+    // still works in memory rather than making the import fail outright.
+    let _ = save_cookies(&app, &cookies);
+    state.set_session(Some(cookies), Some(account.clone()));
+    Ok(account)
+}
+
+#[tauri::command]
 pub async fn auth_status(
     app: AppHandle,
-    state: State<'_, AuthState>,
+    state: State<'_, AppState>,
 ) -> Result<Option<Account>, String> {
-    if let Ok(account) = state.account.lock() {
-        if let Some(account) = account.clone() {
+    if let Some(account) = state.account() {
+        if state.cookie_header().is_some() {
             return Ok(Some(account));
         }
     }
@@ -285,29 +433,41 @@ pub async fn auth_status(
     let Some(cookies) = load_cookies(&app) else {
         return Ok(None);
     };
-    let Some(account) = fetch_account(&client(), &cookies).await? else {
+    let epoch = state.session_epoch();
+    let Some(account) = fetch_account(&state, &cookies).await? else {
         return Ok(None);
     };
-    if let Ok(mut slot) = state.cookies.lock() {
-        *slot = Some(cookies);
+    if state.session_epoch() != epoch {
+        return Ok(None);
     }
-    if let Ok(mut slot) = state.account.lock() {
-        *slot = Some(account.clone());
-    }
+    state.set_session(Some(cookies), Some(account.clone()));
     Ok(Some(account))
 }
 
 #[tauri::command]
-pub async fn logout(app: AppHandle, state: State<'_, AuthState>) -> Result<(), String> {
+pub async fn logout(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     clear_cookies(&app)?;
     if let Ok(mut jars) = state.qr_jars.lock() {
         jars.clear();
     }
-    if let Ok(mut slot) = state.cookies.lock() {
-        *slot = None;
-    }
-    if let Ok(mut slot) = state.account.lock() {
-        *slot = None;
-    }
+    state.set_session(None, None);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_cookie_input;
+
+    #[test]
+    fn accepts_music_u() {
+        assert_eq!(
+            normalize_cookie_input("Cookie: MUSIC_U=abc; __csrf=def").unwrap(),
+            "MUSIC_U=abc; __csrf=def"
+        );
+    }
+
+    #[test]
+    fn rejects_missing_music_u() {
+        assert!(normalize_cookie_input("__csrf=def").is_err());
+    }
 }

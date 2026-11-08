@@ -2,6 +2,8 @@ import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import { BrandMark } from "./CoverArt";
 import { Icon } from "./Icon";
 import {
+  getAuthStatus,
+  importCookie,
   isTauri,
   pollQrLogin,
   qrDataUrl,
@@ -20,19 +22,55 @@ export function LoginModal(props: {
   const [qr, setQr] = createSignal("");
   const [status, setStatus] = createSignal("正在获取二维码…");
   const [account, setAccount] = createSignal<Account | null>(null);
+  const [importOpen, setImportOpen] = createSignal(false);
+  const [cookieText, setCookieText] = createSignal("");
+  const [importBusy, setImportBusy] = createSignal(false);
+  const [importError, setImportError] = createSignal<string | null>(null);
   let key = "";
   let poll: number | undefined;
   let closed = false;
   let polling = false;
+  let generation = 0;
 
   const stopPolling = () => {
     if (poll !== undefined) {
       window.clearInterval(poll);
       poll = undefined;
     }
+    polling = false;
+  };
+
+  const finishSuccess = (next: Account) => {
+    generation += 1;
+    stopPolling();
+    setAccount(next);
+    setPhase("success");
+    setStatus("登录成功");
+    props.onSuccess(next);
+    window.setTimeout(() => {
+      if (!closed) props.onClose();
+    }, 900);
+  };
+
+  const submitCookie = async () => {
+    if (!cookieText().trim() || importBusy()) return;
+    const request = generation;
+    setImportBusy(true);
+    setImportError(null);
+    try {
+      const next = await importCookie(cookieText());
+      if (closed || request !== generation) return;
+      setCookieText("");
+      finishSuccess(next);
+    } catch (error) {
+      setImportError(typeof error === "string" ? error : "凭证导入失败，请检查后重试");
+    } finally {
+      setImportBusy(false);
+    }
   };
 
   const begin = async () => {
+    const request = ++generation;
     stopPolling();
     closed = false;
     setPhase("loading");
@@ -41,7 +79,7 @@ export function LoginModal(props: {
     setAccount(null);
     try {
       const start = await startQrLogin();
-      if (closed) return;
+      if (closed || request !== generation) return;
       key = start.unikey;
       setQr(await qrDataUrl(start.qrUrl));
       setPhase("waiting");
@@ -51,30 +89,40 @@ export function LoginModal(props: {
           : "浏览器预览：请安装 Windows 客户端后扫码",
       );
       poll = window.setInterval(async () => {
-        if (closed || !key || polling) return;
+        if (closed || request !== generation || !key || polling) return;
         polling = true;
         try {
           const result = await pollQrLogin(key);
-          if (closed) return;
+          if (closed || request !== generation) return;
           if (result.code === 801) {
             setPhase("waiting");
             setStatus("等待扫码…");
           } else if (result.code === 802) {
             setPhase("scanned");
             setStatus("已扫码，请在手机上确认登录");
-          } else if (result.code === 803 && result.account) {
+          } else if (result.code === 803) {
             stopPolling();
-            setPhase("success");
-            setAccount(result.account);
-            setStatus(result.message || "登录成功");
-            props.onSuccess(result.account);
-            window.setTimeout(() => {
-              if (!closed) props.onClose();
-            }, 800);
+            if (result.account) {
+              finishSuccess(result.account);
+            } else {
+              setPhase("success");
+              setStatus("登录成功，正在同步账号资料…");
+              const next = await getAuthStatus().catch(() => null);
+              if (closed) return;
+              if (next) finishSuccess(next);
+              else {
+                setPhase("error");
+                setStatus("登录成功，但账号资料同步失败；请重启应用后再试");
+              }
+            }
           } else if (result.code === 800) {
             stopPolling();
             setPhase("expired");
             setStatus("二维码已过期，请刷新");
+          } else {
+            stopPolling();
+            setPhase("error");
+            setStatus(result.message || `登录状态异常（${result.code}）`);
           }
         } catch (error) {
           if (closed) return;
@@ -86,8 +134,15 @@ export function LoginModal(props: {
         }
       }, 1800);
     } catch (error) {
+      if (closed || request !== generation) return;
       setPhase("error");
-      setStatus(error instanceof Error ? error.message : "无法获取二维码，请稍后重试");
+      setStatus(
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "无法获取二维码，请稍后重试",
+      );
     }
   };
 
@@ -97,6 +152,7 @@ export function LoginModal(props: {
       if (open) void begin();
       else {
         closed = true;
+        generation += 1;
         stopPolling();
       }
     },
@@ -104,12 +160,17 @@ export function LoginModal(props: {
 
   onCleanup(() => {
     closed = true;
+    generation += 1;
     stopPolling();
   });
 
   const close = () => {
     closed = true;
+    generation += 1;
     stopPolling();
+    setCookieText("");
+    setImportError(null);
+    setImportOpen(false);
     props.onClose();
   };
 
@@ -178,6 +239,10 @@ export function LoginModal(props: {
               : status()}
           </div>
 
+          <Show when={phase() === "error"}>
+            <p class="login-hint">可以尝试更换网络后刷新二维码，或使用下面的网页版凭证导入。</p>
+          </Show>
+
           <div class="login-actions">
             <button class="login-refresh" onClick={() => void begin()}>
               <Icon name="refresh" size={16} />
@@ -185,6 +250,37 @@ export function LoginModal(props: {
             </button>
             <button class="login-cancel" onClick={close}>取消</button>
           </div>
+
+          <button class="login-import-toggle" onClick={() => setImportOpen((value) => !value)}>
+            {importOpen() ? "收起网页版登录" : "扫码被风控？导入网页版登录凭证"}
+          </button>
+
+          <Show when={importOpen()}>
+            <div class="login-import">
+              <p>
+                在浏览器打开 music.163.com 并登录，按 F12 → Application → Cookies，复制
+                <code>MUSIC_U</code>（建议连同 <code>__csrf</code>）粘贴到这里。凭证只保存在本机，
+                由 Windows DPAPI 加密。
+              </p>
+              <textarea
+                class="login-import__input"
+                value={cookieText()}
+                placeholder="MUSIC_U=...; __csrf=..."
+                spellcheck={false}
+                onInput={(event) => setCookieText(event.currentTarget.value)}
+              />
+              <Show when={importError()}>
+                <p class="login-import__error">{importError()}</p>
+              </Show>
+              <button
+                class="login-import__submit"
+                disabled={importBusy() || !cookieText().trim()}
+                onClick={() => void submitCookie()}
+              >
+                {importBusy() ? "正在验证…" : "导入并登录"}
+              </button>
+            </div>
+          </Show>
 
           <p class="login-legal">
             非官方客户端 · 登录使用网易云音乐官方扫码接口 · 账号风险自担

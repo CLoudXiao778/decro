@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Playlist, Track } from "../data/mock";
-import { hotSearches, playlists, recentSearches, tracks } from "../data/mock";
+import { hotSearches, recentSearches } from "../data/mock";
+import { searchMusic } from "../lib/netease";
 import { CoverArt } from "./CoverArt";
 import { Icon } from "./Icon";
 
@@ -12,28 +13,71 @@ type Result =
 export function CommandPalette(props: {
   open: boolean;
   onClose: () => void;
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, context?: Track[]) => void;
   onOpenPlaylist: (playlist: Playlist) => void;
   onNavigate: (page: "explore" | "search" | "library" | "podcast" | "settings") => void;
+  tracks: Track[];
+  playlists: Playlist[];
 }) {
   const [query, setQuery] = createSignal("");
   const [selected, setSelected] = createSignal(0);
+  const [remote, setRemote] = createSignal<{ songs: Track[]; playlists: Playlist[] }>({
+    songs: [],
+    playlists: [],
+  });
+  const [searching, setSearching] = createSignal(false);
   let input!: HTMLInputElement;
   let list!: HTMLDivElement;
+  let searchTimer: number | undefined;
+  let searchRequest = 0;
+
+  createEffect(() => {
+    const keyword = query().trim();
+    window.clearTimeout(searchTimer);
+    const request = ++searchRequest;
+    if (!keyword) {
+      setRemote({ songs: [], playlists: [] });
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    setRemote({ songs: [], playlists: [] });
+    searchTimer = window.setTimeout(async () => {
+      try {
+        const data = await searchMusic(keyword);
+        if (request !== searchRequest) return;
+        setRemote(data);
+      } catch {
+        if (request !== searchRequest) return;
+        setRemote({ songs: [], playlists: [] });
+      } finally {
+        if (request === searchRequest) setSearching(false);
+      }
+    }, 260);
+  });
+
+  onCleanup(() => window.clearTimeout(searchTimer));
 
   const results = createMemo<Result[]>(() => {
     const q = query().trim().toLowerCase();
     if (!q) {
       return [
-        ...tracks.slice(0, 4).map((item) => ({ kind: "track" as const, item })),
-        ...playlists.slice(0, 3).map((item) => ({ kind: "playlist" as const, item })),
+        ...props.tracks.slice(0, 4).map((item) => ({ kind: "track" as const, item })),
+        ...props.playlists.slice(0, 3).map((item) => ({ kind: "playlist" as const, item })),
       ];
     }
-    const trackResults = tracks
+    const online = remote();
+    if (online.songs.length > 0 || online.playlists.length > 0) {
+      return [
+        ...online.songs.slice(0, 5).map((item) => ({ kind: "track" as const, item })),
+        ...online.playlists.slice(0, 4).map((item) => ({ kind: "playlist" as const, item })),
+      ];
+    }
+    const trackResults = props.tracks
       .filter((t) => `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(q))
       .slice(0, 5)
       .map((item) => ({ kind: "track" as const, item }));
-    const playlistResults = playlists
+    const playlistResults = props.playlists
       .filter((p) => `${p.title} ${p.subtitle}`.toLowerCase().includes(q))
       .slice(0, 4)
       .map((item) => ({ kind: "playlist" as const, item }));
@@ -61,7 +105,12 @@ export function CommandPalette(props: {
   });
 
   const run = (result: Result) => {
-    if (result.kind === "track") props.onPlayTrack(result.item);
+    if (result.kind === "track") {
+      const context = results()
+        .filter((item): item is Extract<Result, { kind: "track" }> => item.kind === "track")
+        .map((item) => item.item);
+      props.onPlayTrack(result.item, context);
+    }
     else if (result.kind === "playlist") props.onOpenPlaylist(result.item);
     else props.onNavigate(result.id as "explore" | "search" | "library" | "settings");
     props.onClose();
@@ -154,6 +203,7 @@ export function CommandPalette(props: {
                             <CoverArt
                               palette={(result as Extract<Result, { kind: "track" }>).item.palette}
                               seed={(result as Extract<Result, { kind: "track" }>).item.coverSeed ?? 0}
+                              url={(result as Extract<Result, { kind: "track" }>).item.coverUrl}
                               showLabel={false}
                             />
                           </span>
@@ -173,6 +223,7 @@ export function CommandPalette(props: {
                             <CoverArt
                               palette={(result as Extract<Result, { kind: "playlist" }>).item.palette}
                               seed={(result as Extract<Result, { kind: "playlist" }>).item.coverSeed ?? 0}
+                              url={(result as Extract<Result, { kind: "playlist" }>).item.coverUrl}
                               showLabel={false}
                             />
                           </span>
@@ -214,7 +265,14 @@ export function CommandPalette(props: {
               </div>
             </Show>
 
-            <Show when={query().trim() && results().length === 0}>
+            <Show when={query().trim() && searching() && results().length === 0}>
+              <div class="command__empty">
+                <span class="login-spinner" />
+                <p>正在搜索「{query()}」</p>
+              </div>
+            </Show>
+
+            <Show when={query().trim() && !searching() && results().length === 0}>
               <div class="command__empty">
                 <Icon name="search" size={24} />
                 <p>没有找到跟「{query()}」有关的结果</p>

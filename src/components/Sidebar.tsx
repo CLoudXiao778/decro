@@ -17,6 +17,8 @@ export function Sidebar(props: {
   collapsed: boolean;
   playlists: Playlist[];
   account: Account | null;
+  likedCount: number;
+  dailyCount: number;
   onLogin: () => void;
   onToggleCollapsed: () => void;
   onNavigate: (page: Page) => void;
@@ -59,17 +61,17 @@ export function Sidebar(props: {
         </div>
         <button class="library-row" onClick={props.onOpenLiked}>
           <span class="library-row__icon library-row__icon--like">
-            <Icon name="heart-fill" size={15} />
+            <Icon name="star-fill" size={15} />
           </span>
           <span class="library-row__label">我喜欢的音乐</span>
-          <span class="library-row__count num">328</span>
+          <span class="library-row__count num">{props.likedCount || "—"}</span>
         </button>
         <button class="library-row" onClick={props.onOpenDaily}>
           <span class="library-row__icon">
             <Icon name="sparkles" size={15} />
           </span>
           <span class="library-row__label">每日推荐</span>
-          <span class="library-row__count num">30</span>
+          <span class="library-row__count num">{props.dailyCount || "—"}</span>
         </button>
         <button class="library-row" onClick={props.onOpenRecent}>
           <span class="library-row__icon">
@@ -91,7 +93,7 @@ export function Sidebar(props: {
             {(playlist) => (
               <button class="playlist-row" onClick={() => props.onOpenPlaylist(playlist)} title={playlist.title}>
                 <span class="playlist-row__thumb">
-                  <CoverArt palette={playlist.palette} seed={playlist.coverSeed ?? 0} showLabel={false} />
+                  <CoverArt palette={playlist.palette} seed={playlist.coverSeed ?? 0} url={playlist.coverUrl} showLabel={false} />
                 </span>
                 <span class="playlist-row__text">
                   <span class="playlist-row__title">{playlist.title}</span>

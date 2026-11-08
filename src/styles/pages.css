@@ -65,6 +65,14 @@
   opacity: 0.55;
   border-radius: 50%;
 }
+.cover-art__img {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .cover-art__grain {
   position: absolute;
   inset: 0;
@@ -3373,11 +3381,17 @@
 .category-card__name {
   position: absolute;
   left: 24px;
+  right: 24px;
   bottom: 36px;
+  display: -webkit-box;
+  overflow: hidden;
   color: #fff;
-  font-size: clamp(24px, 2.4vw, 34px);
+  font-size: clamp(20px, 2vw, 30px);
   font-weight: 700;
   letter-spacing: -0.04em;
+  line-height: 1.15;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .category-card__meta {
   position: absolute;
@@ -3661,4 +3675,13 @@ button.settings-source-row:hover {
 [data-perf="low"] .cover-art__blob,
 [data-perf="low"] .genre-card::before {
   filter: none;
+}
+
+/* ── Real cover image layer ────────────────────────────────────────── */
+
+.cover-art__img {
+  transition: opacity 220ms var(--ease-standard);
+}
+[data-perf="low"] .cover-art__img {
+  transition: none;
 }

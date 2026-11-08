@@ -36,7 +36,7 @@ export function PlaylistCard(props: {
       }}
     >
       <div class="playlist-card__cover">
-        <CoverArt palette={props.playlist.palette} seed={props.playlist.coverSeed ?? 0} showLabel={false} />
+        <CoverArt palette={props.playlist.palette} seed={props.playlist.coverSeed ?? 0} url={props.playlist.coverUrl} showLabel={false} />
         <span class="playlist-card__type">
           <Icon name={props.playlist.kind === "radio" ? "waves" : props.playlist.kind === "chart" ? "grid" : "queue"} size={12} />
           {props.playlist.kind === "radio" ? "RADAR" : props.playlist.kind === "chart" ? "CHART" : "PLAYLIST"}
@@ -64,7 +64,7 @@ export function ChartCard(props: { playlist: Playlist; onOpen: (playlist: Playli
   return (
     <button class="chart-card" onClick={() => props.onOpen(props.playlist)}>
       <div class="chart-card__cover">
-        <CoverArt palette={props.playlist.palette} seed={props.playlist.coverSeed ?? 0} showLabel={false} />
+        <CoverArt palette={props.playlist.palette} seed={props.playlist.coverSeed ?? 0} url={props.playlist.coverUrl} showLabel={false} />
         <span class="chart-card__overlay">
           <span class="chart-card__title">{props.playlist.title}</span>
           <span class="chart-card__meta">{props.playlist.subtitle}</span>
@@ -102,7 +102,7 @@ export function TrackRow(props: {
       </span>
       <span class="track-row__main">
         <span class="track-row__thumb">
-          <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} showLabel={false} />
+          <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} url={props.track.coverUrl} showLabel={false} />
         </span>
         <span class="track-row__text">
           <span class="track-row__title">
@@ -126,7 +126,7 @@ export function TrackRow(props: {
           aria-label={props.liked ? "取消喜欢" : "喜欢"}
           onClick={() => props.onToggleLike?.(props.track)}
         >
-          <Icon name={props.liked ? "heart-fill" : "heart"} size={15} />
+          <Icon name={props.liked ? "star-fill" : "star"} size={15} />
         </button>
         <button class="icon-btn icon-btn--tiny" aria-label="更多" onClick={() => props.onMore?.(props.track)}>
           <Icon name="more" size={15} />

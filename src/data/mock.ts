@@ -14,9 +14,11 @@ export type Track = {
   palette: [string, string, string, string];
   lyrics: LyricLine[];
   liked?: boolean;
-  quality?: "Hi-Res" | "SQ" | "HQ";
+  quality?: "Hi-Res" | "SQ" | "HQ" | "标准";
   vip?: boolean;
   coverSeed?: number;
+  coverUrl?: string;
+  fee?: number;
 };
 
 export type Playlist = {
@@ -28,6 +30,13 @@ export type Playlist = {
   coverSeed?: number;
   kind?: "playlist" | "radio" | "daily" | "chart";
   description?: string;
+  coverUrl?: string;
+  creator?: string;
+  playCount?: number;
+  updateTime?: number;
+  specialType?: number;
+  trackCount?: number;
+  tracks?: Track[];
 };
 
 const lyricA: LyricLine[] = [

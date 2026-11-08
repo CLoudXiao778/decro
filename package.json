@@ -1,7 +1,7 @@
 {
   "name": "cirro-desktop",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "An unofficial desktop recreation of Cirro, focused on visual and motion fidelity.",
   "type": "module",
   "scripts": {
