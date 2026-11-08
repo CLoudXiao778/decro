@@ -90,7 +90,7 @@ export function SearchPage(props: {
             onClick={props.onProfile}
           >
             <span class="source-avatar__inner">
-              {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "C"}
+              {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
             </span>
           </button>
         </header>

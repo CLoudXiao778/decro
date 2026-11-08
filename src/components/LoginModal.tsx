@@ -187,7 +187,7 @@ export function LoginModal(props: {
             <span class="login-brand__mark">
               <BrandMark size={25} />
             </span>
-            <span>Cirro</span>
+            <span>Decro</span>
           </div>
 
           <h2>扫码登录</h2>
@@ -283,7 +283,7 @@ export function LoginModal(props: {
           </Show>
 
           <p class="login-legal">
-            非官方客户端 · 登录使用网易云音乐官方扫码接口 · 账号风险自担
+            非官方客户端 · 感谢 Cirro 原项目 · 登录使用网易云音乐官方扫码接口 · 账号风险自担
           </p>
         </div>
       </div>

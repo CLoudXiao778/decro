@@ -1,26 +1,28 @@
-# Cirro Desktop
+# Decro
 
-> 一个面向 Windows 的、非官方的 Cirro 桌面重制版。
+> Decro（**De**sktop + **C**irro）是一个面向 Windows 的、非官方的 Cirro 桌面重制版。
 > 以 **Cirro 的视觉语言与动效** 为核心，同时提供可用的扫码登录、在线曲库、搜索与播放。
 
-Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风格：品牌红、流体渐变、玻璃浮层、封面取色、胶囊形 dock、从卡片连续长成全屏播放页的动效，以及逐行/逐字歌词。这个项目把同一套语言搬到桌面，而不是把手机比例放大。
+Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风格：品牌红、流体渐变、玻璃浮层、封面取色、胶囊形 dock、从卡片连续长成全屏播放页的动效，以及逐行/逐字歌词。Decro 把同一套语言搬到桌面，而不是把手机比例放大。项目名称由 desktop 与 Cirro 组合而成，但仍明确标注这是对 Cirro 的非官方重制与致敬。
 
 ![status](https://img.shields.io/badge/status-online%20catalog%20%2B%20playback-c92027)
 ![stack](https://img.shields.io/badge/stack-Tauri%202%20%2B%20Rust%20%2B%20SolidJS-1b1d20)
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Cirro Desktop 0.2.0 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.2.0/Cirro.Desktop_0.2.0_x64-setup.exe)
-- 安装包约 **1.83 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.2.1 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.2.1/Decro.Desktop_0.2.1_x64-setup.exe)
+- 安装包体积见 Release 页面；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.2.0 在线曲库版**：扫码登录后可读取你的歌单、最近播放与每日推荐，并直接播放网易云音源。
+- 这是 **0.2.1 Decro 品牌版**：扫码登录后可读取你的歌单、最近播放与每日推荐，并直接播放网易云音源；旧版登录凭证会自动迁移。
 
 ## 当前状态
 
-- **阶段**：0.2.0 · 扫码登录 + 在线曲库 + 播放
+- **阶段**：0.2.1 · Decro 品牌 + 扫码登录 + 在线曲库 + 播放
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
-- **0.2.0 实装**：
+- **0.2.1 实装**：
+  - 项目/应用/安装包/包标识符统一改名为 **Decro**；旧 `cirrodesktop` 登录凭证自动迁移到 `decrodesktop`。
+  - 新的 D 字标记与 Decro 品牌文案；设置页和登录页加入对 Cirro 原项目的感谢。
   - 网易云扫码登录（新版 `type=3` 桌面接口），登录态由 Windows DPAPI 加密保存在本机；二维码被风控时支持网页版 Cookie 导入。
   - 在线首页：推荐歌单、新歌速递、每日推荐、最近播放。
   - 资料库：我的歌单、收藏歌单、我喜欢的音乐、最近播放。
@@ -31,11 +33,17 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 - `?mini` 仍是浏览器预览；安装版点击迷你按钮会提示“下一版接入播放同步”。
 - 最终目标：Tauri 2 + Rust 后端 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
 
+### 致谢
+
+- **Cirro 原项目**：[ThripleQ/cirro](https://github.com/ThripleQ/cirro) — 设计语言、交互与动效的源头；Decro 是非官方重制，感谢原作者。
+- **alpha42 真机截图** — 用于设计研究，仅本地保留，不随仓库发布。
+- **Inter / Tauri / SolidJS / 所有开源依赖** — 各自许可证见 `THIRD_PARTY.md` 与锁文件。
+
 ### 源版本参考
 
 alpha42 真机截图只保存在本地 `docs/screenshots/apk/`，用于设计研究，**不随公开仓库发布**：它们包含第三方专辑封面、用户收听记录和真实歌词。对应结论已整理进 `docs/apk-analysis.md` 与 `docs/style-audit.md`。
 
-### 本仓库桌面原型截图
+### Decro 桌面截图
 
 | 首页（深色） | 首页（浅色） |
 |---|---|

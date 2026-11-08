@@ -1,12 +1,12 @@
 [package]
-name = "cirro-desktop"
-version = "0.2.0"
-description = "An unofficial desktop recreation of Cirro"
-authors = ["Cirro Desktop contributors"]
+name = "decro-desktop"
+version = "0.2.1"
+description = "Decro — an unofficial desktop recreation of Cirro"
+authors = ["Decro contributors"]
 edition = "2021"
 
 [lib]
-name = "cirro_desktop_lib"
+name = "decro_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

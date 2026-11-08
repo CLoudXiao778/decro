@@ -1,7 +1,7 @@
 # 扫码登录与凭证
 
 > 从 0.2.0 起，登录不仅解决账号身份，还会同步在线歌单、最近播放与每日推荐，
-> 并用于获取可播放音源。曲库/播放不再是 mock。
+> 并用于获取可播放音源。0.2.1 起项目更名为 Decro。
 
 ## 1. 范围
 
@@ -84,13 +84,14 @@
 
 ## 4. 凭证存储
 
-- 位置：`%APPDATA%\io.github.cloudxiao778.cirrodesktop\netease-auth.bin`
+- 位置：`%APPDATA%\io.github.cloudxiao778.decrodesktop\netease-auth.bin`
   （Tauri `app_data_dir`，不写入项目目录，也不写入 `localStorage`）。
 - 内容：登录后的 Cookie 请求头字符串。
 - 加密：Windows DPAPI `CryptProtectData`（CurrentUser），读取时
   `CryptUnprotectData`。密文与当前 Windows 用户绑定，复制到其他用户或电脑无法解密。
 - 退出登录：删除该文件，并清空 Rust 内存中的 cookie / account / 音源缓存。
 - 启动恢复：`auth_status` 读取并解密文件，然后请求账号资料验证；失效则返回未登录。
+- 从 0.2.0 升级时，若新标识符目录没有凭证，会读取旧 `io.github.cloudxiao778.cirrodesktop` 文件并迁移到新目录；成功后删除旧文件。
 - 非 Windows 开发构建不把凭证写盘：`protect` 返回错误，扫码/导入的登录仅在当前进程内有效。
   公开发布只构建 Windows。
 

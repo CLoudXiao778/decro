@@ -2,13 +2,14 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
 use crate::secure_store;
 use crate::state::{Account, AppState, API_BASE, INTERFACE_BASE};
 
 const AUTH_FILE: &str = "netease-auth.bin";
+const LEGACY_IDENTIFIER: &str = "io.github.cloudxiao778.cirrodesktop";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,13 +42,34 @@ fn auth_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join(AUTH_FILE))
 }
 
-fn load_cookies(app: &AppHandle) -> Option<String> {
-    let path = auth_path(app).ok()?;
+fn read_cookie_file(path: &Path) -> Option<String> {
     let encrypted = fs::read(path).ok()?;
     let plain = secure_store::unprotect(&encrypted).ok()?;
     String::from_utf8(plain)
         .ok()
         .filter(|s| !s.trim().is_empty())
+}
+
+fn legacy_auth_path(app: &AppHandle) -> Option<PathBuf> {
+    let current = app.path().app_data_dir().ok()?;
+    let parent = current.parent()?;
+    Some(parent.join(LEGACY_IDENTIFIER).join(AUTH_FILE))
+}
+
+fn load_cookies(app: &AppHandle) -> Option<String> {
+    let path = auth_path(app).ok()?;
+    if let Some(cookies) = read_cookie_file(&path) {
+        return Some(cookies);
+    }
+
+    // Migration from 0.2.0 and earlier: the identifier changed from
+    // cirrodesktop to decrodesktop, so the DPAPI file lives one directory over.
+    let legacy = legacy_auth_path(app)?;
+    let cookies = read_cookie_file(&legacy)?;
+    if save_cookies(app, &cookies).is_ok() {
+        let _ = fs::remove_file(&legacy);
+    }
+    Some(cookies)
 }
 
 fn save_cookies(app: &AppHandle, cookies: &str) -> Result<(), String> {
@@ -60,6 +82,11 @@ fn clear_cookies(app: &AppHandle) -> Result<(), String> {
     let path = auth_path(app)?;
     if path.exists() {
         fs::remove_file(path).map_err(|e| format!("清除登录凭证失败: {e}"))?;
+    }
+    if let Some(legacy) = legacy_auth_path(app) {
+        if legacy.exists() {
+            let _ = fs::remove_file(legacy);
+        }
     }
     Ok(())
 }

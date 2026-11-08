@@ -108,7 +108,7 @@ export function Sidebar(props: {
       <div class="sidebar__bottom">
         <button class="profile-chip" onClick={props.account ? props.onSettings : props.onLogin}>
           <span class="profile-chip__avatar">
-            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "C"}
+            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
           </span>
           <span class="profile-chip__text">
             <b>{props.account ? props.account.nickname : "未登录"}</b>

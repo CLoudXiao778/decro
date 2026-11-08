@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Cirro Desktop",
-  "version": "0.2.0",
-  "identifier": "io.github.cloudxiao778.cirrodesktop",
+  "productName": "Decro Desktop",
+  "version": "0.2.1",
+  "identifier": "io.github.cloudxiao778.decrodesktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Cirro Desktop",
+        "title": "Decro Desktop",
         "width": 1440,
         "height": 900,
         "minWidth": 960,

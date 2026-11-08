@@ -63,7 +63,7 @@ export function SettingsPage(props: {
         }}
       >
         <span class="settings-account__avatar">
-          {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "C"}
+          {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
         </span>
         <span class="settings-account__text">
           <b>{props.account ? props.account.nickname : "网易云未登录"}</b>
@@ -122,6 +122,9 @@ export function SettingsPage(props: {
         </button>
       </Show>
 
+      <p class="settings-thanks">
+        Decro 是对 Cirro 的非官方重制。感谢 Cirro 原项目、alpha42 真机参考与所有开源依赖。
+      </p>
     </div>
   );
 }

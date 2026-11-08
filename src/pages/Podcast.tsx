@@ -16,7 +16,7 @@ export function PodcastPage(props: {
         <h1 class="source-title">分类</h1>
         <button class="source-avatar" aria-label="个人资料" title="个人资料" onClick={props.onProfile}>
           <span class="source-avatar__inner">
-            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "C"}
+            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
           </span>
         </button>
       </header>

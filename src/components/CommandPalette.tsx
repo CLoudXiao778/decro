@@ -285,7 +285,7 @@ export function CommandPalette(props: {
             <span><kbd>↑</kbd><kbd>↓</kbd> 选择</span>
             <span><kbd>↵</kbd> 打开</span>
             <span><kbd>Esc</kbd> 关闭</span>
-            <span class="command__brand">CIRRO SEARCH</span>
+            <span class="command__brand">DECRO SEARCH</span>
           </div>
         </div>
       </div>

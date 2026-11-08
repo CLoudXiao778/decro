@@ -49,7 +49,7 @@ export function Titlebar(props: {
         <div class="brand-mark">
           <BrandMark size={25} />
         </div>
-        <span>Cirro</span>
+        <span>Decro</span>
         <small>DESKTOP</small>
       </div>
 

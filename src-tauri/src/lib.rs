@@ -62,5 +62,5 @@ pub fn run() {
             netease::playback_config,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Cirro Desktop");
+        .expect("error while running Decro Desktop");
 }

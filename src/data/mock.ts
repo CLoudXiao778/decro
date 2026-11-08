@@ -193,7 +193,7 @@ export const playlists: Playlist[] = [
   {
     id: "p1",
     title: "城市夜行：合成器与霓虹的边界",
-    subtitle: "Cirro 编辑部 · 28 首",
+    subtitle: "Decro 编辑部 · 28 首",
     count: "28",
     palette: ["#6d1d28", "#ff5f4d", "#f0b15c", "#2a1020"],
     coverSeed: 0,

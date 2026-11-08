@@ -14,9 +14,9 @@
 - **libnetease** — 暂未接入或随包分发；后续接入前需确认其许可证。
 - **Rust crates / npm packages** — 各自许可证见 `Cargo.lock` / `package-lock.json`。
 
-## Design reference
+## Design reference / thanks
 
-Cirro 的 Android 源码与 APK 仅作为设计与交互研究参考。本仓库不包含其原始代码、Logo、图标路径或 PNG 品牌图；所有界面资产均为本项目自绘或使用可再分发字体。
+Decro 是非官方重制，感谢 **Cirro 原项目**（https://github.com/ThripleQ/cirro）提供的设计语言、交互与动效参考。Cirro 的 Android 源码与 APK 仅作为设计与交互研究参考。本仓库不包含其原始代码、Logo、图标路径或 PNG 品牌图；所有界面资产均为本项目自绘或使用可再分发字体。
 
 `docs/screenshots/` 中的原型截图来自本仓库前端；alpha42 真机截图仅本地保留，不随仓库发布。
 

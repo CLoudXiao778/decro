@@ -35,14 +35,25 @@ import { SettingsPage } from "./pages/Settings";
 
 export type Page = "explore" | "search" | "library" | "podcast" | "settings";
 
+function migrateLocalSettings() {
+  for (const key of ["theme", "lowPower", "coverAccent", "translation"]) {
+    const legacy = localStorage.getItem(`cirro.${key}`);
+    if (legacy === null) continue;
+    if (localStorage.getItem(`decro.${key}`) === null) {
+      localStorage.setItem(`decro.${key}`, legacy);
+    }
+    localStorage.removeItem(`cirro.${key}`);
+  }
+}
+
 function storedTheme(): "dark" | "light" {
-  const saved = localStorage.getItem("cirro.theme");
+  const saved = localStorage.getItem("decro.theme");
   if (saved === "dark" || saved === "light") return saved;
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 function initialLowPower(): boolean {
-  const saved = localStorage.getItem("cirro.lowPower");
+  const saved = localStorage.getItem("decro.lowPower");
   if (saved === "true" || saved === "false") return saved === "true";
   return (navigator.hardwareConcurrency ?? 8) <= 4;
 }
@@ -54,6 +65,7 @@ function storedBool(key: string, fallback: boolean): boolean {
 }
 
 export default function App() {
+  migrateLocalSettings();
   const [page, setPage] = createSignal<Page>("explore");
   const [detail, setDetail] = createSignal<Playlist | null>(null);
   const [detailOrigin, setDetailOrigin] = createSignal<DOMRect | null>(null);
@@ -65,8 +77,8 @@ export default function App() {
   const [volume, setVolume] = createSignal(0.64);
   const [theme, setTheme] = createSignal<"dark" | "light">(storedTheme());
   const [lowPower, setLowPower] = createSignal<boolean>(initialLowPower());
-  const [coverAccent, setCoverAccent] = createSignal(storedBool("cirro.coverAccent", true));
-  const [showTranslation, setShowTranslation] = createSignal(storedBool("cirro.translation", true));
+  const [coverAccent, setCoverAccent] = createSignal(storedBool("decro.coverAccent", true));
+  const [showTranslation, setShowTranslation] = createSignal(storedBool("decro.translation", true));
   const [account, setAccount] = createSignal<Account | null>(null);
   const [loginOpen, setLoginOpen] = createSignal(false);
   const [navCollapsed, setNavCollapsed] = createSignal(true);
@@ -501,12 +513,12 @@ export default function App() {
 
   createEffect(() => {
     document.documentElement.dataset.theme = theme();
-    localStorage.setItem("cirro.theme", theme());
+    localStorage.setItem("decro.theme", theme());
   });
 
   createEffect(() => {
     document.documentElement.dataset.perf = lowPower() ? "low" : "high";
-    localStorage.setItem("cirro.lowPower", String(lowPower()));
+    localStorage.setItem("decro.lowPower", String(lowPower()));
   });
 
   createEffect(() => {
@@ -517,11 +529,11 @@ export default function App() {
     root.style.setProperty("--accent-2", enabled ? track.palette[2] : "#ff8b69");
     root.style.setProperty("--accent-3", enabled ? track.palette[3] : "#2a1020");
     root.style.setProperty("--accent-ink", enabled ? track.palette[0] : "#2a0b0d");
-    localStorage.setItem("cirro.coverAccent", String(enabled));
+    localStorage.setItem("decro.coverAccent", String(enabled));
   });
 
   createEffect(() => {
-    localStorage.setItem("cirro.translation", String(showTranslation()));
+    localStorage.setItem("decro.translation", String(showTranslation()));
   });
 
   createEffect(() => {
@@ -589,8 +601,8 @@ export default function App() {
     }
 
     const openLogin = () => setLoginOpen(true);
-    window.addEventListener("cirro:open-login", openLogin);
-    onCleanup(() => window.removeEventListener("cirro:open-login", openLogin));
+    window.addEventListener("decro:open-login", openLogin);
+    onCleanup(() => window.removeEventListener("decro:open-login", openLogin));
 
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -688,7 +700,7 @@ export default function App() {
           }
           window.open(
             "/?mini",
-            "cirro-mini",
+            "decro-mini",
             "width=440,height=160,resizable=no,scrollbars=no,titlebar=no",
           );
         }}

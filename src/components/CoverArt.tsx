@@ -13,11 +13,13 @@ export function BrandMark(props: { size?: number; class?: string; splash?: boole
     >
       <path
         class={props.splash ? "splash-c" : undefined}
-        d="M118 32C106 22 92 17 78 17C44 17 17 44 17 80C17 116 44 143 78 143C92 143 106 138 118 128L100 104C93 110 86 113 78 113C60 113 45 98 45 80C45 62 60 47 78 47C86 47 93 50 100 56L118 32Z"
+        d="M40 20H78C112 20 136 45 136 80C136 115 112 140 78 140H40V20ZM62 44V116H78C100 116 112 101 112 80C112 59 100 44 78 44H62Z"
         fill="currentColor"
+        fill-rule="evenodd"
       />
       <path
-        d="M36 87C50 75 64 75 78 87C92 99 106 99 124 87"
+        d="M52 84C66 72 80 72 94 84C104 92 114 92 122 86"
+        fill="none"
         stroke="currentColor"
         stroke-width="5"
         stroke-linecap="round"
@@ -67,7 +69,7 @@ export function CoverArt(props: {
       </Show>
       {props.showLabel !== false && (
         <div class="cover-art__label">
-          <span>{props.label ?? "CIRRO"}</span>
+          <span>{props.label ?? "DECRO"}</span>
           <i />
         </div>
       )}

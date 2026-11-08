@@ -10,6 +10,24 @@
 - SMTC、媒体键、系统托盘、迷你播放器与主窗口播放状态同步。
 - 更完整的歌单管理（创建、收藏、排序）与逐字歌词。
 
+## [0.2.1] - 2026-11-08
+
+品牌与仓库完整改名为 **Decro**（Desktop + Cirro），并保留对 Cirro 原项目的明确致敬。
+
+### Changed
+
+- GitHub 仓库从 `cirro-desktop` 改名为 `decro`；旧 URL 由 GitHub 重定向。
+- 应用显示名、窗口标题、`productName`、Rust crate、npm 包名、安装包名统一改为 Decro。
+- Tauri identifier 从 `io.github.cloudxiao778.cirrodesktop` 改为 `io.github.cloudxiao778.decrodesktop`。
+- 新的 D 字品牌标记；标题栏、登录弹窗、搜索面板、封面水印、关于文案改为 Decro。
+- 旧版登录凭证自动从 `cirrodesktop` 数据目录迁移到 `decrodesktop`；旧 `cirro.*` 本地设置键迁移到 `decro.*`。
+- README、架构、登录、构建、风格审计文档同步更名；新增「致谢」章节，感谢 Cirro 原项目与 alpha42 参考。
+
+### Release
+
+- Windows 10/11 x64 NSIS 安装包 `v0.2.1`，由 GitHub Actions `windows-latest` 构建；未签名。
+- 旧 `v0.2.0` 安装包仍保留，下载链接会随仓库改名重定向。
+
 ## [0.2.0] - 2026-11-08
 
 从视觉原型升级为可登录、可浏览在线曲库、可播放的音乐客户端。

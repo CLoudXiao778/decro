@@ -3851,3 +3851,11 @@ kbd {
 .login-import__submit:disabled {
   opacity: 0.45;
 }
+
+.settings-thanks {
+  margin-top: 22px;
+  color: var(--on-surface-3);
+  font-size: 10px;
+  line-height: 1.6;
+  text-align: center;
+}
