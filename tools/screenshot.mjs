@@ -9,7 +9,7 @@ const browser = await chromium.launch();
 
 async function pageWith(viewport, theme) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
-  await page.addInitScript((value) => localStorage.setItem("cirro.theme", value), theme);
+  await page.addInitScript((value) => { localStorage.setItem("cirro.theme", value); localStorage.setItem("cirro.lowPower", "false"); }, theme);
   return page;
 }
 

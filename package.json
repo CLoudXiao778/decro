@@ -1,7 +1,7 @@
 {
   "name": "cirro-desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An unofficial desktop recreation of Cirro, focused on visual and motion fidelity.",
   "type": "module",
   "scripts": {
@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
+    "qrcode": "^1.5.4",
     "solid-js": "^1.9.18"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.6.6",
+    "@types/qrcode": "^1.5.6",
     "playwright": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",

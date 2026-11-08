@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, Match, onCleanup, onMount, Show
 import { CommandPalette } from "./components/CommandPalette";
 import { FullPlayer } from "./components/FullPlayer";
 import { Icon } from "./components/Icon";
+import { LoginModal } from "./components/LoginModal";
 import { NowPlayingRail, type RailTab } from "./components/NowPlayingRail";
 import { PlayerDock } from "./components/PlayerDock";
 import { Sidebar } from "./components/Sidebar";
@@ -9,6 +10,7 @@ import { Splash } from "./components/Splash";
 import { Titlebar } from "./components/Titlebar";
 import type { Playlist, Track } from "./data/mock";
 import { playlists, tracks } from "./data/mock";
+import { getAuthStatus, isTauri, logout as apiLogout, type Account } from "./lib/auth";
 import { DetailPage } from "./pages/Detail";
 import { Explore } from "./pages/Explore";
 import { Library } from "./pages/Library";
@@ -24,6 +26,12 @@ function storedTheme(): "dark" | "light" {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
+function initialLowPower(): boolean {
+  const saved = localStorage.getItem("cirro.lowPower");
+  if (saved === "true" || saved === "false") return saved === "true";
+  return (navigator.hardwareConcurrency ?? 8) <= 4;
+}
+
 export default function App() {
   const [page, setPage] = createSignal<Page>("explore");
   const [detail, setDetail] = createSignal<Playlist | null>(null);
@@ -34,6 +42,9 @@ export default function App() {
   const [progress, setProgress] = createSignal(72);
   const [volume, setVolume] = createSignal(0.64);
   const [theme, setTheme] = createSignal<"dark" | "light">(storedTheme());
+  const [lowPower, setLowPower] = createSignal<boolean>(initialLowPower());
+  const [account, setAccount] = createSignal<Account | null>(null);
+  const [loginOpen, setLoginOpen] = createSignal(false);
   const [navCollapsed, setNavCollapsed] = createSignal(true);
   const [railOpen, setRailOpen] = createSignal(false);
   const [railTab, setRailTab] = createSignal<RailTab>("lyrics");
@@ -144,6 +155,11 @@ export default function App() {
   });
 
   createEffect(() => {
+    document.documentElement.dataset.perf = lowPower() ? "low" : "high";
+    localStorage.setItem("cirro.lowPower", String(lowPower()));
+  });
+
+  createEffect(() => {
     const track = current();
     const root = document.documentElement;
     root.style.setProperty("--accent", track.palette[1]);
@@ -174,6 +190,17 @@ export default function App() {
   });
 
   onMount(() => {
+    if (isTauri()) {
+      void getAuthStatus()
+        .then((value) => {
+          if (value) setAccount(value);
+        })
+        .catch(() => undefined);
+    }
+    const openLogin = () => setLoginOpen(true);
+    window.addEventListener("cirro:open-login", openLogin);
+    onCleanup(() => window.removeEventListener("cirro:open-login", openLogin));
+
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const typing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
@@ -233,6 +260,21 @@ export default function App() {
     onCleanup(() => window.removeEventListener("keydown", onKey));
   });
 
+  const handleLoginSuccess = (next: Account) => {
+    setAccount(next);
+    showToast(`已登录：${next.nickname}`);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch {
+      /* local state still clears */
+    }
+    setAccount(null);
+    showToast("已退出登录");
+  };
+
   return (
     <div
       class="app"
@@ -261,6 +303,8 @@ export default function App() {
         onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
         onToggleRail={() => setRailOpen((value) => !value)}
         onOpenSearch={() => setPaletteOpen(true)}
+        account={account()}
+        onLogin={() => setLoginOpen(true)}
         onMini={() =>
           window.open(
             "/?mini",
@@ -278,6 +322,8 @@ export default function App() {
           page={page()}
           collapsed={navCollapsed()}
           playlists={playlists}
+          account={account()}
+          onLogin={() => setLoginOpen(true)}
           onToggleCollapsed={() => setNavCollapsed((value) => !value)}
           onNavigate={navigate}
           onOpenPlaylist={openPlaylist}
@@ -360,6 +406,11 @@ export default function App() {
                       onTheme={setTheme}
                       onToast={showToast}
                       onClose={() => navigate("explore")}
+                      lowPower={lowPower()}
+                      onLowPower={setLowPower}
+                      account={account()}
+                      onLogin={() => setLoginOpen(true)}
+                      onLogout={() => void handleLogout()}
                     />
                   </Match>
                 </Switch>
@@ -445,6 +496,12 @@ export default function App() {
         onVolume={setVolume}
         onToggleLike={() => toggleLike(current())}
         onPlayTrack={playTrack}
+      />
+
+      <LoginModal
+        open={loginOpen()}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={handleLoginSuccess}
       />
 
       <CommandPalette

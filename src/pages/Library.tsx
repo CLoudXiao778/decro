@@ -43,7 +43,7 @@ export function Library(props: {
     <div class="page page--library-source">
       <header class="source-head">
         <h1 class="source-title">资料库</h1>
-        <button class="source-avatar" aria-label="个人资料" title="个人资料">
+        <button class="source-avatar" aria-label="个人资料" title="个人资料" onClick={() => window.dispatchEvent(new Event("cirro:open-login"))}>
           <span class="source-avatar__inner">C</span>
         </button>
       </header>

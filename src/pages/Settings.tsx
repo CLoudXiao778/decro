@@ -1,6 +1,7 @@
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { audioQualities } from "../data/mock";
 import { Icon } from "../components/Icon";
+import type { Account } from "../lib/auth";
 
 function Toggle(props: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
@@ -34,16 +35,19 @@ export function SettingsPage(props: {
   onTheme: (theme: "dark" | "light") => void;
   onToast: (message: string) => void;
   onClose: () => void;
+  lowPower: boolean;
+  onLowPower: (value: boolean) => void;
+  account: Account | null;
+  onLogin: () => void;
+  onLogout: () => void;
 }) {
   const [quality, setQuality] = createSignal("标准");
   const [volumeBalance, setVolumeBalance] = createSignal(true);
-  const [vocal, setVocal] = createSignal(true);
   const [listBlur, setListBlur] = createSignal(true);
   const [oneTake, setOneTake] = createSignal(true);
   const [coverAccent, setCoverAccent] = createSignal(true);
   const [lyricsBlur, setLyricsBlur] = createSignal(true);
   const [translation, setTranslation] = createSignal(true);
-  const [fluidBlur, setFluidBlur] = createSignal(false);
 
   return (
     <div class="page page--settings-source">
@@ -55,13 +59,26 @@ export function SettingsPage(props: {
         <span class="settings-top-spacer" />
       </header>
 
-      <section class="settings-account">
-        <span class="settings-account__avatar">C</span>
-        <span class="settings-account__text">
-          <b>cloud</b>
-          <small>100000001</small>
+      <button
+        class="settings-account"
+        classList={{ "is-logged-in": !!props.account }}
+        onClick={() => {
+          if (!props.account) props.onLogin();
+        }}
+      >
+        <span class="settings-account__avatar">
+          {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "C"}
         </span>
-      </section>
+        <span class="settings-account__text">
+          <b>{props.account ? props.account.nickname : "网易云未登录"}</b>
+          <small>{props.account ? `ID ${props.account.userId}` : "点击扫码登录"}</small>
+        </span>
+        <Show when={!props.account}>
+          <span class="settings-account__chevron">
+            <Icon name="chevron-right" size={22} />
+          </span>
+        </Show>
+      </button>
 
       <div class="settings-group-label">个性化</div>
       <div class="settings-source-list">
@@ -110,21 +127,6 @@ export function SettingsPage(props: {
           </span>
           <Toggle checked={volumeBalance()} onChange={setVolumeBalance} label="音量平衡" />
         </div>
-        <div class="settings-source-row">
-          <span class="settings-source-row__text">
-            <b>人声分离</b>
-            <small>在歌词页调节人声大小。关闭后隐藏入口并释放模型。</small>
-          </span>
-          <Toggle checked={vocal()} onChange={setVocal} label="人声分离" />
-        </div>
-        <button class="settings-source-row">
-          <span class="settings-source-row__text"><b>人声分离模型</b></span>
-          <Picker value="Clarity" />
-        </button>
-        <button class="settings-source-row">
-          <span class="settings-source-row__text"><b>人声分离性能</b></span>
-          <Picker value="自动" />
-        </button>
       </div>
 
       <div class="settings-group-label">歌词</div>
@@ -152,14 +154,19 @@ export function SettingsPage(props: {
       <div class="settings-group-label">实验</div>
       <div class="settings-source-list">
         <div class="settings-source-row">
-          <span class="settings-source-row__text"><b>关闭流体背景模糊</b></span>
-          <Toggle checked={fluidBlur()} onChange={setFluidBlur} label="关闭流体背景模糊" />
+          <span class="settings-source-row__text">
+            <b>性能模式</b>
+            <small>降低背景模糊、玻璃与动效开销，适合低配电脑。</small>
+          </span>
+          <Toggle checked={props.lowPower} onChange={props.onLowPower} label="性能模式" />
         </div>
       </div>
 
-      <button class="settings-logout" onClick={() => props.onToast("已退出登录")}>
-        退出登录
-      </button>
+      <Show when={props.account}>
+        <button class="settings-logout" onClick={props.onLogout}>
+          退出登录
+        </button>
+      </Show>
 
     </div>
   );

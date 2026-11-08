@@ -47,7 +47,10 @@ function WaveProgress(props: {
       }}
     >
       <span class="wave-progress__line" style={{ left: `${fraction() * 100}%` }} />
-      <span class="wave-progress__played" style={{ width: `${fraction() * 100}%` }} />
+      <span class="wave-progress__played" style={{ width: `${fraction() * 100}%` }}>
+        <span class="wave-progress__wave" />
+        <span class="wave-progress__flat" />
+      </span>
       <span class="wave-progress__thumb" style={{ left: `${fraction() * 100}%` }} />
     </div>
   );

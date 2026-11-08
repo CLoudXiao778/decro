@@ -5,22 +5,23 @@
 
 Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风格：品牌红、流体渐变、玻璃浮层、封面取色、胶囊形 dock、从卡片连续长成全屏播放页的动效，以及逐行/逐字歌词。这个项目把同一套语言搬到桌面，而不是把手机比例放大。
 
-![status](https://img.shields.io/badge/status-style%20prototype-c92027)
+![status](https://img.shields.io/badge/status-visual%20prototype%20%2B%20QR%20login-c92027)
 ![stack](https://img.shields.io/badge/stack-Tauri%202%20%2B%20Rust%20%2B%20SolidJS-1b1d20)
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Cirro Desktop 0.1.0 (NSIS .exe)](https://github.com/CLoudXiao778/cirro-desktop/releases/download/v0.1.0/Cirro.Desktop_0.1.0_x64-setup.exe)
-- 安装包约 **1.5 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
+- **Windows 10/11 x64 安装包**：[Cirro Desktop 0.1.1 (NSIS .exe)](https://github.com/CLoudXiao778/cirro-desktop/releases/download/v0.1.1/Cirro.Desktop_0.1.1_x64-setup.exe)
+- 安装包保持轻量（15 MB 预算内，具体体积见 Release 页面）；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.1.0 视觉原型**：界面与动效可体验，数据为 mock，尚未接入网易云登录/播放。
+- 这是 **0.1.1 视觉原型**：界面与动效可体验，已接入真实网易云扫码登录；曲库与播放仍为 mock。
 
 ## 当前状态
 
-- **阶段**：0.1.0 · 风格原型
+- **阶段**：0.1.1 · 风格原型 + 扫码登录
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部迷你播放器、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
-- 数据目前来自本地 mock，尚未接入网易云 API。
+- 0.1.1 新增：真实网易云扫码登录（登录态由 Windows DPAPI 加密保存在本机）、低配自动性能模式、播放/暂停波形 180ms 交叉淡入淡出；设置页不再展示人声分离入口。
+- 数据目前来自本地 mock；登录只用于账号身份展示，尚未接入网易云曲库、歌单或播放。
 - 最终目标：Tauri 2 + Rust 后端 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
 
 ### 源版本参考
@@ -76,9 +77,10 @@ src/
   components/     # 壳、标题栏、dock、播放页、图标、封面、进度条
   pages/          # 主页 / 分类 / 资料库 / 搜索 / 详情 / 设置
   data/           # mock 数据（后续替换为 Rust 数据层）
-  lib/            # 时间/插值等零依赖工具
+  lib/            # 时间/插值、扫码登录客户端
   styles/         # tokens / base / app / pages
-docs/             # 设计、动效、APK 分析、架构、构建
+src-tauri/        # Rust 后端：二维码登录、DPAPI 凭证
+docs/             # 设计、动效、APK 分析、架构、构建、登录
 public/fonts/     # Inter（OFL）
 ```
 
@@ -89,7 +91,8 @@ public/fonts/     # Inter（OFL）
 - [docs/motion.md](docs/motion.md) — 动效令牌、Splash、共享封面、播放页展开
 - [docs/desktop-adaptation.md](docs/desktop-adaptation.md) — 为什么不是“放大的手机”
 - [docs/style-audit.md](docs/style-audit.md) — 与源版本的逐项一致性审计
-- [docs/architecture.md](docs/architecture.md) — 当前前端结构与 Tauri 后端规划
+- [docs/architecture.md](docs/architecture.md) — 当前结构与 Tauri 后端规划
+- [docs/auth.md](docs/auth.md) — 扫码登录流程、凭证存储与安全边界
 - [docs/build.md](docs/build.md) — Windows 构建、CI、包体预算
 - [docs/README.md](docs/README.md) — 文档索引
 
@@ -98,8 +101,9 @@ public/fonts/     # Inter（OFL）
 - 这是一个**非官方**项目，与 Cirro 原作者无关。
 - 上游 Cirro 仓库没有提供 LICENSE；本项目不直接复制其代码、Logo、图标或字体资产。图标为自绘 SVG，字体 Inter 使用 OFL 授权。
 - 本仓库的代码以 MIT License 发布；上游的专辑封面、歌词与真机截图不属于本仓库。
-- 网易云音乐接口属于第三方非官方接口，登录与使用风险由使用者自行承担。
-- 当前没有捆绑任何 ONNX 模型；人声分离等大体积能力不在默认包内。
+- 网易云音乐接口属于第三方非官方接口，登录与使用风险由使用者自行承担；登录使用官方扫码页，不绕过验证码或风控。
+- 登录凭证只保存在本机 `%APPDATA%`，由 Windows DPAPI 加密；前端与日志都拿不到 Cookie。
+- 当前没有捆绑任何 ONNX 模型；设置页也已移除人声分离入口。
 
 ## License
 

@@ -1,5 +1,6 @@
 import { BrandMark } from "./CoverArt";
 import { Icon } from "./Icon";
+import type { Account } from "../lib/auth";
 import type { Page } from "../App";
 
 export function Titlebar(props: {
@@ -11,6 +12,8 @@ export function Titlebar(props: {
   onToggleRail: () => void;
   onOpenSearch: () => void;
   onMini: () => void;
+  account: Account | null;
+  onLogin: () => void;
   onBack: () => void;
   onForward: () => void;
   onSettings: () => void;
@@ -68,6 +71,17 @@ export function Titlebar(props: {
       <div class="titlebar__spacer" data-tauri-drag-region />
 
       <div class="titlebar__actions">
+        <button
+          class="titlebar-account"
+          classList={{ "is-logged-in": !!props.account }}
+          title={props.account ? `${props.account.nickname} · 账号设置` : "登录网易云音乐"}
+          onClick={props.account ? props.onSettings : props.onLogin}
+        >
+          <span class="titlebar-account__avatar">
+            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : <Icon name="user" size={15} />}
+          </span>
+          <span class="titlebar-account__label">{props.account ? props.account.nickname : "登录"}</span>
+        </button>
         <button class="icon-btn icon-btn--sm" title="迷你播放器" aria-label="迷你播放器" onClick={props.onMini}>
           <Icon name="grid" size={16} />
         </button>

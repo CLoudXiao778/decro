@@ -59,7 +59,8 @@ export type IconName =
   | "sliders"
   | "headphones"
   | "waves"
-  | "command";
+  | "command"
+  | "refresh";
 
 const paths: Record<IconName, () => JSX.Element> = {
   compass: () => (
@@ -315,6 +316,12 @@ const paths: Record<IconName, () => JSX.Element> = {
   ),
   waves: () => <path d="M3 12c3-6 6-6 9 0s6 6 9 0M3 17c3-6 6-6 9 0s6 6 9 0" />,
   command: () => <path d="M9 9h6v6H9V9ZM9 9a3 3 0 1 0-3-3v3h3ZM15 9V6a3 3 0 1 1 3 3h-3ZM9 15H6a3 3 0 1 0 3 3v-3ZM15 15h3a3 3 0 1 1-3 3v-3Z" />,
+  refresh: () => (
+    <>
+      <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+      <path d="M20 5v6h-6" />
+    </>
+  ),
 };
 
 export function Icon(props: {

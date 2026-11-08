@@ -22,7 +22,7 @@ export function PodcastPage(props: {
     <div class="page page--categories">
       <header class="source-head">
         <h1 class="source-title">分类</h1>
-        <button class="source-avatar" aria-label="个人资料" title="个人资料">
+        <button class="source-avatar" aria-label="个人资料" title="个人资料" onClick={() => window.dispatchEvent(new Event("cirro:open-login"))}>
           <span class="source-avatar__inner">C</span>
         </button>
       </header>

@@ -1,6 +1,6 @@
 [package]
 name = "cirro-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "An unofficial desktop recreation of Cirro"
 authors = ["Cirro Desktop contributors"]
 edition = "2021"
@@ -16,6 +16,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls", "gzip"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_System_Memory", "Win32_Foundation"] }
 
 [profile.release]
 codegen-units = 1

@@ -3,6 +3,7 @@ import type { Page } from "../App";
 import type { Playlist } from "../data/mock";
 import { CoverArt } from "./CoverArt";
 import { Icon, type IconName } from "./Icon";
+import type { Account } from "../lib/auth";
 
 const navItems: { page: Page; label: string; icon: IconName }[] = [
   { page: "explore", label: "主页", icon: "home" },
@@ -15,6 +16,8 @@ export function Sidebar(props: {
   page: Page;
   collapsed: boolean;
   playlists: Playlist[];
+  account: Account | null;
+  onLogin: () => void;
   onToggleCollapsed: () => void;
   onNavigate: (page: Page) => void;
   onOpenPlaylist: (playlist: Playlist) => void;
@@ -101,11 +104,13 @@ export function Sidebar(props: {
       </div>
 
       <div class="sidebar__bottom">
-        <button class="profile-chip" onClick={props.onSettings}>
-          <span class="profile-chip__avatar">C</span>
+        <button class="profile-chip" onClick={props.account ? props.onSettings : props.onLogin}>
+          <span class="profile-chip__avatar">
+            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "C"}
+          </span>
           <span class="profile-chip__text">
-            <b>cloud</b>
-            <small>网易云已连接</small>
+            <b>{props.account ? props.account.nickname : "未登录"}</b>
+            <small>{props.account ? "网易云已连接" : "点击扫码登录"}</small>
           </span>
           <Icon name="more" size={16} class="profile-chip__more" />
         </button>

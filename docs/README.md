@@ -8,7 +8,8 @@
 | [design-system.md](design-system.md) | 颜色、字体、形状、布局、组件、封面生成 |
 | [motion.md](motion.md) | 动效令牌、Splash、共享封面、播放页展开、性能约束 |
 | [desktop-adaptation.md](desktop-adaptation.md) | 桌面信息架构、响应式、鼠标/键盘、Windows 集成 |
-| [architecture.md](architecture.md) | 当前前端结构、Tauri/Rust 目标架构、数据流 |
+| [architecture.md](architecture.md) | 当前结构、Tauri/Rust 目标架构、数据流 |
+| [auth.md](auth.md) | 扫码登录流程、DPAPI 凭证存储、安全与合规边界 |
 | [style-audit.md](style-audit.md) | 与 APK/源码的逐项一致性审计、已知偏差 |
 | [build.md](build.md) | 本地开发、Windows CI、包体预算、发布 |
 | [screenshots/](screenshots/) | 当前原型截图 + `apk/` 下的 alpha42 真机截图 |
@@ -23,7 +24,8 @@
 
 - **不做手机比例的放大**：桌面三栏、曲目表格、hover/右键/键盘、自定义无边框标题栏。
 - **动效是产品的一部分**：展开 420ms / 收起 320ms / 共享封面 360ms，曲线用 Material 3 Emphasized 家族。
-- **默认包不包含大模型**：ONNX 人声分离约 36 MB，后续按需下载。
+- **默认包不包含大模型**：ONNX 人声分离约 36 MB，已从设置页移除入口，不随主包发布。
+- **登录是真实但窄的切片**：只做扫码、账号资料、退出；曲库与播放仍是 mock。
 - **不打包浏览器/运行时**：使用系统 WebView2；不引入 Electron。
 - **封面取色只影响播放语境**：列表页保持中性表面，播放页/沉浸页才让环境光跟随封面。
 - **降低动态效果**：`prefers-reduced-motion` 下动效退化为淡入淡出。
