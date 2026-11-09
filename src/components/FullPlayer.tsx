@@ -83,6 +83,7 @@ export function FullPlayer(props: {
   showTranslation: boolean;
 }) {
   const [visible, setVisible] = createSignal(false);
+  const [hidden, setHidden] = createSignal(true);
   const [expanded, setExpanded] = createSignal(false);
   const [preparing, setPreparing] = createSignal(false);
   const [heroReady, setHeroReady] = createSignal(false);
@@ -169,6 +170,7 @@ export function FullPlayer(props: {
 
   function openPlayer() {
     window.clearTimeout(closeTimer);
+    setHidden(false);
     const rects = readRects();
     setSourceDock(rects.dock);
     setSourceCover(rects.cover);
@@ -204,20 +206,37 @@ export function FullPlayer(props: {
     });
   }
 
+  function hideClone() {
+    if (clone) clone.style.visibility = "hidden";
+  }
+
   function closePlayer() {
     if (!visible()) return;
-    const dest = toRect(cover?.getBoundingClientRect());
-    const src = sourceCover() ?? sourceDock();
-    if (dest && src) {
+    // Reverse of open: fly the real player cover back to the dock, not the
+    // other way around. The old direction could leave a full-size clone on
+    // top of the page after the panel closed.
+    const from = toRect(cover?.getBoundingClientRect());
+    const to = sourceCover() ?? sourceDock();
+    if (from && to) {
       setHeroReady(false);
-      runClone(src, dest, true).then(() => {
-        if (!props.open) setVisible(false);
+      runClone(from, to, true).then(() => {
+        hideClone();
+        if (!props.open) {
+          setVisible(false);
+          setHidden(true);
+        }
       });
       closeTimer = window.setTimeout(() => {
-        if (!props.open) setVisible(false);
-      }, 340);
+        hideClone();
+        if (!props.open) {
+          setVisible(false);
+          setHidden(true);
+        }
+      }, 380);
     } else {
+      hideClone();
       setVisible(false);
+      setHidden(true);
     }
     setPreparing(false);
     setExpanded(false);
@@ -262,6 +281,7 @@ export function FullPlayer(props: {
     cloneAnim?.cancel();
     window.clearTimeout(fallbackTimer);
     window.clearTimeout(closeTimer);
+    hideClone();
   });
 
   const paletteStyle = () => ({
@@ -287,7 +307,12 @@ export function FullPlayer(props: {
           "is-closing": !props.open,
           "is-lyrics": lyricsFocus(),
         }}
-        style={{ ...paletteStyle(), "clip-path": clip() }}
+        style={{
+          ...paletteStyle(),
+          "clip-path": clip(),
+          visibility: hidden() ? "hidden" : "visible",
+          display: hidden() ? "none" : "flex",
+        }}
         aria-hidden={!props.open}
         aria-modal="true"
         role="dialog"

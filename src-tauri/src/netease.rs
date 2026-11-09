@@ -610,9 +610,11 @@ pub async fn like_song(
     if state.account().is_none() {
         return Err("请先登录网易云".to_string());
     }
+    let id_for_log = id.clone();
     tokio::task::spawn_blocking(move || crate::libnetease::song_like(&id, like))
         .await
         .map_err(|e| format!("喜欢操作线程失败: {e}"))??;
+    crate::logger::log("info", "like", &format!("id={id_for_log} like={like}"));
     Ok(LikeResult { liked: like })
 }
 
@@ -646,7 +648,14 @@ pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, Stri
         for level in ["standard", "exhigh"] {
             match crate::libnetease::song_url(&id_owned, level) {
                 Ok(url) => return Ok(url),
-                Err(error) => last_error = error,
+                Err(error) => {
+                    crate::logger::log(
+                        "debug",
+                        "song",
+                        &format!("id={id_owned} level={level} failed: {error}"),
+                    );
+                    last_error = error;
+                }
             }
         }
         Err(if last_error.is_empty() {
@@ -673,6 +682,18 @@ pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, Stri
         return Err("音源地址不在允许的网易云域名内".to_string());
     }
 
+    crate::logger::log(
+        "debug",
+        "song",
+        &format!(
+            "id={} url_host={}",
+            id,
+            reqwest::Url::parse(&url)
+                .ok()
+                .and_then(|parsed| parsed.host_str().map(str::to_string))
+                .unwrap_or_else(|| "?".to_string())
+        ),
+    );
     if let Ok(mut cache) = state.url_cache.lock() {
         cache.insert(id.to_string(), (url.clone(), Instant::now()));
     }

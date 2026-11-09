@@ -48,12 +48,20 @@ async fn stream(
     headers: HeaderMap,
 ) -> Response {
     if params.get("token").map(String::as_str) != Some(state.proxy.token.as_str()) {
+        crate::logger::log("warn", "proxy", &format!("id={id} forbidden token"));
         return (StatusCode::FORBIDDEN, "forbidden").into_response();
     }
+
+    let range = headers
+        .get(axum::http::header::RANGE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("-");
+    crate::logger::log("debug", "proxy", &format!("id={id} range={range}"));
 
     let upstream_url = match netease::resolve_song_url(&state, &id).await {
         Ok(url) => url,
         Err(error) => {
+            crate::logger::log("error", "proxy", &format!("id={id} resolve: {error}"));
             return (
                 StatusCode::BAD_GATEWAY,
                 [("content-type", "text/plain; charset=utf-8")],
@@ -77,7 +85,11 @@ async fn stream(
     let upstream = match request.send().await {
         Ok(response) => response,
         Err(_) => {
-            eprintln!("audio proxy: upstream request failed for song {id}");
+            crate::logger::log(
+                "error",
+                "proxy",
+                &format!("upstream request failed id={id}"),
+            );
             return (
                 StatusCode::BAD_GATEWAY,
                 [("content-type", "text/plain; charset=utf-8")],
@@ -97,6 +109,19 @@ async fn stream(
     }
 
     let status = upstream.status();
+    crate::logger::log(
+        "debug",
+        "proxy",
+        &format!(
+            "id={id} upstream_status={} content_length={}",
+            status,
+            upstream
+                .headers()
+                .get("content-length")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("-")
+        ),
+    );
     let mut builder = Response::builder()
         .status(status.as_u16())
         .header("access-control-allow-origin", "*")

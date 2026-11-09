@@ -153,6 +153,15 @@ pub fn qr_start() -> Result<(String, String), String> {
         let key_ptr = ne_qr_get_key(&mut code, &mut body_ptr, &mut body_len);
         let key = take_c_string(key_ptr);
         let body = take_c_string(body_ptr);
+        crate::logger::log(
+            "debug",
+            "qr",
+            &format!(
+                "key_len={} body_len={} code={code:.0}",
+                key.len(),
+                body.len()
+            ),
+        );
         if key.is_empty() {
             return Err(qr_error(&body, code, "网易云未返回二维码 key"));
         }
@@ -173,6 +182,11 @@ pub fn qr_check(unikey: &str) -> Result<(i32, String), String> {
         let mut body_len = 0usize;
         let body_ptr = ne_qr_check(cstring(unikey).as_ptr(), &mut code, &mut body_len);
         let body = take_c_string(body_ptr);
+        crate::logger::log(
+            "debug",
+            "qr",
+            &format!("check body_len={} code={code:.0}", body.len()),
+        );
         if body.is_empty() {
             return Err("网易云登录状态响应为空".to_string());
         }
@@ -186,6 +200,11 @@ pub fn song_url(id: &str, level: &str) -> Result<String, String> {
     unsafe {
         let resp = ne_song_url_v1(cstring(id).as_ptr(), cstring(level).as_ptr());
         let (code, err, body) = take_resp(resp)?;
+        crate::logger::log(
+            "debug",
+            "song",
+            &format!("id={id} level={level} code={code} body_len={}", body.len()),
+        );
         let json: Value =
             serde_json::from_str(&body).map_err(|e| format!("音源响应格式异常: {e}"))?;
         if let Some(url) = json
@@ -223,6 +242,7 @@ pub fn song_like(id: &str, like: bool) -> Result<(), String> {
             cstring(if like { "true" } else { "false" }).as_ptr(),
         );
         let (code, err, body) = take_resp(resp)?;
+        crate::logger::log("info", "like", &format!("id={id} like={like} code={code}"));
         if code == 200 {
             return Ok(());
         }
@@ -356,11 +376,17 @@ unsafe fn transport_impl(
         return make_response(0, Vec::new(), None, Some("empty transport URL".to_string()));
     }
     let method = read_c_string(method);
+    let safe_url = url.split('?').next().unwrap_or(&url).to_string();
     let body = read_c_string(body);
     let content_type = read_c_string(content_type);
     let cookie = read_c_string(cookie_header);
     let agent = read_c_string(user_agent);
 
+    crate::logger::log(
+        "debug",
+        "http",
+        &format!("{} {} body_len={}", method, safe_url, body.len()),
+    );
     let request_method = if method.eq_ignore_ascii_case("GET") {
         reqwest::Method::GET
     } else {
@@ -392,6 +418,11 @@ unsafe fn transport_impl(
     match request.send() {
         Ok(response) => {
             let status = response.status().as_u16() as c_long;
+            crate::logger::log(
+                "debug",
+                "http",
+                &format!("{} {} status={}", method, safe_url, status),
+            );
             let set_cookies = response
                 .headers()
                 .get_all(reqwest::header::SET_COOKIE)

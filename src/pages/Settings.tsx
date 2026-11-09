@@ -43,6 +43,7 @@ export function SettingsPage(props: {
   account: Account | null;
   onLogin: () => void;
   onLogout: () => void;
+  onOpenLogs: () => void;
 }) {
 
   return (
@@ -114,6 +115,13 @@ export function SettingsPage(props: {
           </span>
           <Toggle checked={props.lowPower} onChange={props.onLowPower} label="性能模式" />
         </div>
+        <button class="settings-source-row" onClick={props.onOpenLogs}>
+          <span class="settings-source-row__text">
+            <b>调试日志</b>
+            <small>播放/登录异常时打开日志目录，把 decro.log 发给开发者。</small>
+          </span>
+          <Icon name="chevron-right" size={22} class="settings-source-row__chevron" />
+        </button>
       </div>
 
       <Show when={props.account}>

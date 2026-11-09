@@ -26,6 +26,7 @@ import {
   type PlaybackConfig,
 } from "./lib/netease";
 import { formatTime } from "./lib/format";
+import { debugLog, openLogFolder } from "./lib/log";
 import { DetailPage } from "./pages/Detail";
 import { Explore } from "./pages/Explore";
 import { Library } from "./pages/Library";
@@ -166,11 +167,19 @@ export default function App() {
 
   const loadCatalog = async () => {
     const request = ++catalogRequest;
+    debugLog("catalog load start", { request, loggedIn: !!account() });
     setCatalogLoading(true);
     setCatalogError(null);
     try {
       const data = await getHomeFeed();
       if (request !== catalogRequest) return;
+      debugLog("catalog home loaded", {
+        recommended: data.recommended.length,
+        newSongs: data.newSongs.length,
+        daily: data.daily.length,
+        recent: data.recent.length,
+        userPlaylists: data.userPlaylists.length,
+      });
       applyHome(data);
 
       if (account() || !isTauri()) {
@@ -184,6 +193,7 @@ export default function App() {
       }
     } catch (error) {
       if (request !== catalogRequest) return;
+      debugLog("catalog load failed", { error: String(error) });
       setCatalogError(typeof error === "string" ? error : "无法连接网易云，请检查网络");
     } finally {
       if (request === catalogRequest) setCatalogLoading(false);
@@ -248,6 +258,12 @@ export default function App() {
   const playTrack = (track: Track, context?: Track[]) => {
     playRequest += 1;
     userStarted = true;
+    debugLog("play track", {
+      id: track.id,
+      title: track.title,
+      real: isRealTrack(track),
+      context: context?.length ?? 0,
+    });
     setCurrent(track);
     setProgress(0);
     setPlaying(true);
@@ -340,16 +356,47 @@ export default function App() {
   const nextTrack = () => stepTrack(1);
   const prevTrack = () => stepTrack(-1);
 
+  const attemptPlay = () => {
+    if (!audio) return;
+    debugLog("audio play attempt", {
+      id: current().id,
+      readyState: audio.readyState,
+      paused: audio.paused,
+      hasSrc: !!audio.src,
+    });
+    void audio.play().catch((error) => {
+      setPlaying(false);
+      const name = error instanceof DOMException ? error.name : "";
+      debugLog("audio play rejected", {
+        name,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      showToast(
+        name === "NotAllowedError"
+          ? "播放被系统拦截，请再点一次播放按钮"
+          : "音频播放失败，请检查网络或换一首歌",
+      );
+    });
+  };
+
   const togglePlay = () => {
-    if (isTauri() && (!isRealTrack(current()) || !playback())) {
+    if (isTauri() && (!isRealTrack(current()) || !playback() || !audio)) {
       showToast("歌曲还在加载，请稍候");
       return;
     }
     if (audio && audioFailed && playback() && isRealTrack(current())) {
       audioFailed = false;
       pendingSeek = null;
+      debugLog("audio source set", {
+        id: current().id,
+        base: playback()!.base,
+      });
       audio.src = streamUrl(playback()!, current().id);
       audio.load();
+    }
+    if (audio && !audio.src && isRealTrack(current())) {
+      showToast("音源尚未就绪，请稍候");
+      return;
     }
     setPlaying((value) => !value);
   };
@@ -474,6 +521,21 @@ export default function App() {
     audio = new Audio();
     audio.preload = "metadata";
     audio.volume = volume();
+    audio.addEventListener("loadstart", () => {
+      debugLog("audio loadstart", { id: current().id });
+    });
+    audio.addEventListener("canplay", () => {
+      debugLog("audio canplay", { id: current().id });
+    });
+    audio.addEventListener("playing", () => {
+      debugLog("audio playing", { id: current().id });
+    });
+    audio.addEventListener("waiting", () => {
+      debugLog("audio waiting", { id: current().id });
+    });
+    audio.addEventListener("stalled", () => {
+      debugLog("audio stalled", { id: current().id });
+    });
     audio.addEventListener("timeupdate", () => {
       if (audio) setProgress(audio.currentTime);
     });
@@ -490,6 +552,10 @@ export default function App() {
     audio.addEventListener("loadedmetadata", () => {
       if (!audio) return;
       const duration = audio.duration;
+      debugLog("audio metadata", {
+        id: current().id,
+        duration: Number.isFinite(duration) ? duration : 0,
+      });
       if (Number.isFinite(duration) && duration > 0) {
         setCurrent((previous) => ({
           ...previous,
@@ -500,15 +566,32 @@ export default function App() {
       applyPendingSeek();
     });
     audio.addEventListener("canplay", applyPendingSeek);
-    audio.addEventListener("ended", () => nextTrack());
+    audio.addEventListener("pause", () => {
+      debugLog("audio pause event", { id: current().id });
+    });
+    audio.addEventListener("ended", () => {
+      debugLog("audio ended", { id: current().id });
+      nextTrack();
+    });
     audio.addEventListener("error", () => {
       audioFailed = true;
       setPlaying(false);
+      debugLog("audio error", {
+        id: current().id,
+        code: audio?.error?.code ?? 0,
+        message: audio?.error?.message ?? "",
+      });
       showToast("该歌曲暂不可播放（可能需要会员或受版权限制）");
     });
     void getPlaybackConfig()
-      .then(setPlayback)
-      .catch(() => showToast("本地音频代理启动失败，请重启应用"));
+      .then((config) => {
+        setPlayback(config);
+        debugLog("playback config ready", { base: config.base });
+      })
+      .catch((error) => {
+        debugLog("playback config failed", { error: String(error) });
+        showToast("本地音频代理启动失败，请重启应用");
+      });
   };
 
   createEffect(() => {
@@ -559,11 +642,13 @@ export default function App() {
       if (!isRealTrack(current())) return;
       audioFailed = false;
       pendingSeek = null;
+      debugLog("audio source set", {
+        id: current().id,
+        base: playback()!.base,
+      });
       audio.src = streamUrl(playback()!, current().id);
       audio.load();
-      if (playing()) {
-        void audio.play().catch(() => setPlaying(false));
-      }
+      if (playing()) attemptPlay();
     },
     { defer: true },
   ));
@@ -571,9 +656,7 @@ export default function App() {
   createEffect(() => {
     if (!audio) return;
     if (playing()) {
-      if (audio.paused && audio.src) {
-        void audio.play().catch(() => setPlaying(false));
-      }
+      if (audio.paused && audio.src) attemptPlay();
     } else {
       audio.pause();
     }
@@ -583,7 +666,12 @@ export default function App() {
     if (audio) audio.volume = volume();
   });
 
+  createEffect(() => {
+    debugLog("play state", { playing: playing(), id: current().id });
+  });
+
   onMount(() => {
+    debugLog("app mounted", { tauri: isTauri() });
     initAudio();
     void loadCatalog();
 
@@ -804,6 +892,11 @@ export default function App() {
                       account={account()}
                       onLogin={() => setLoginOpen(true)}
                       onLogout={() => void handleLogout()}
+                      onOpenLogs={() => {
+                        void openLogFolder().catch((error) =>
+                          showToast(typeof error === "string" ? error : "打开日志目录失败"),
+                        );
+                      }}
                     />
                   </Match>
                 </Switch>

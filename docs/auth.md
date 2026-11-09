@@ -111,7 +111,7 @@
 - **CSP**：`connect-src` 不放行 `music.163.com`；`img-src` 只额外放行网易云图片 CDN；
   `media-src` 只放行本地代理。前端会拿到本地代理 token（用于 `127.0.0.1` 音频 URL），
   但拿不到网易云会话 Cookie 或带签名的 CDN URL。
-- **日志**：不打印请求头、Cookie、Set-Cookie 或音源 URL；错误信息只说明失败阶段。
+- **日志**：debug 日志写入应用日志目录的 `decro.log`；不打印 Cookie、token、Set-Cookie 或签名音源 URL；错误信息只说明失败阶段。设置 → 实验可打开日志目录。
 - **头像**：保存 `avatarUrl` 字符串但当前 UI 使用昵称首字，不加载远程头像。
 
 ## 6. 已知限制

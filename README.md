@@ -10,16 +10,20 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.3.0 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.3.0/Decro.Desktop_0.3.0_x64-setup.exe)
-- 安装包约 **2.49 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.3.1 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.3.1/Decro.Desktop_0.3.1_x64-setup.exe)
+- 安装包体积见 Release 页面；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.3.0 修复版**：改用 Cirro 原项目的 `libnetease` 处理扫码、音源签名与红心；登录后可读取歌单、最近播放与每日推荐，并直接播放网易云音源。
+- 这是 **0.3.1 修复版**：改用 Cirro 原项目的 `libnetease` 处理扫码、音源签名与红心；新增播放/登录 debug 日志与关闭播放页残留修复。
 
 ## 当前状态
 
-- **阶段**：0.3.0 · Decro 品牌 + libnetease 登录/播放 + 在线曲库
+- **阶段**：0.3.1 · Decro 品牌 + libnetease 登录/播放 + 在线曲库
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.3.1 修复 / 诊断**：
+  - 修复关闭沉浸播放页后残留大封面/播放层的问题（关闭时封面飞回 dock，结束后强制隐藏播放层与克隆层）。
+  - 加入 debug 日志：设置 → 实验 → 调试日志，可打开日志目录；日志覆盖登录、libnetease 请求、音源解析、代理 Range、audio 生命周期与播放拒绝原因。
+  - 为 WebView2 加 `--autoplay-policy=no-user-gesture-required`；播放被拦截时会弹出提示，不再静默失败。
 - **0.3.0 修复**：
   - 接入 Cirro 原项目的 **libnetease**（C 子模块）处理扫码登录、`os/appver` 音源签名和红心；不再手写网易云加密/播放 URL。
   - 修复 weapi 请求缺少 `Content-Type` 导致网易云返回空 body 的问题；这是之前播放全部失败的根因之一。
@@ -34,6 +38,7 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
   - 播放：Rust 本地音频代理、Range/seek、播放/暂停、上一首/下一首、队列、音量、进度、真实歌词、喜欢/取消喜欢。
   - 低配自动性能模式（4 线程及以下 CPU 默认开启）、500ms 波形播放/暂停交叉淡入淡出。
 - 在线数据来自网易云非官方接口；登录/音源/红心经 `libnetease`，首页/歌单/搜索等仍由 Rust 直连 Web 接口。评论、下载、播客/MV、云盘、听歌上报尚未接入。
+- 如果播放仍无声音：打开 设置 → 实验 → 调试日志，把 `decro.log` 发给开发者；日志不包含 Cookie/token。
 - `?mini` 仍是浏览器预览；安装版点击迷你按钮会提示“下一版接入播放同步”。
 - 最终目标：Tauri 2 + Rust + libnetease 统一数据层 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
 

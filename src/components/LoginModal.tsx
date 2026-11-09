@@ -1,5 +1,6 @@
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import { BrandMark } from "./CoverArt";
+import { debugLog } from "../lib/log";
 import { Icon } from "./Icon";
 import {
   getAuthStatus,
@@ -60,9 +61,13 @@ export function LoginModal(props: {
     try {
       const next = await importCookie(cookieText());
       if (closed || request !== generation) return;
+      debugLog("cookie import ok", { userId: next.userId });
       setCookieText("");
       finishSuccess(next);
     } catch (error) {
+      debugLog("cookie import failed", {
+        error: typeof error === "string" ? error : "unknown",
+      });
       setImportError(typeof error === "string" ? error : "凭证导入失败，请检查后重试");
     } finally {
       setImportBusy(false);
@@ -80,6 +85,7 @@ export function LoginModal(props: {
     try {
       const start = await startQrLogin();
       if (closed || request !== generation) return;
+      debugLog("qr start ok", { keyLength: start.unikey.length });
       key = start.unikey;
       setQr(await qrDataUrl(start.qrUrl));
       setPhase("waiting");
@@ -94,6 +100,7 @@ export function LoginModal(props: {
         try {
           const result = await pollQrLogin(key);
           if (closed || request !== generation) return;
+          debugLog("qr poll", { code: result.code, message: result.message });
           if (result.code === 801) {
             setPhase("waiting");
             setStatus("等待扫码…");
@@ -135,6 +142,9 @@ export function LoginModal(props: {
       }, 1800);
     } catch (error) {
       if (closed || request !== generation) return;
+      debugLog("qr start failed", {
+        error: typeof error === "string" ? error : "unknown",
+      });
       setPhase("error");
       setStatus(
         typeof error === "string"

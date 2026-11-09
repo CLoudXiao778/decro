@@ -1,5 +1,6 @@
 mod auth;
 mod libnetease;
+mod logger;
 mod netease;
 mod proxy;
 mod secure_store;
@@ -7,6 +8,7 @@ mod state;
 
 use rand::RngCore;
 use state::{AppState, ProxyInfo};
+use tauri::Manager;
 
 fn random_token() -> String {
     let mut bytes = [0u8; 24];
@@ -30,21 +32,28 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(state)
-        .setup(move |_app| {
+        .setup(move |app| {
+            let log_dir = app
+                .path()
+                .app_log_dir()
+                .or_else(|_| app.path().app_data_dir())
+                .unwrap_or_else(|_| std::env::temp_dir());
+            logger::init(log_dir);
+            logger::log("info", "app", "Decro Desktop starting");
             tauri::async_runtime::spawn(async move {
                 if listener.set_nonblocking(true).is_err() {
-                    eprintln!("audio proxy: failed to set non-blocking listener");
+                    logger::log("error", "proxy", "failed to set non-blocking listener");
                     return;
                 }
                 let listener = match tokio::net::TcpListener::from_std(listener) {
                     Ok(listener) => listener,
                     Err(error) => {
-                        eprintln!("audio proxy: invalid listener: {error}");
+                        logger::log("error", "proxy", &format!("invalid listener: {error}"));
                         return;
                     }
                 };
                 if let Err(error) = proxy::serve(listener, proxy_state).await {
-                    eprintln!("audio proxy: {error}");
+                    logger::log("error", "proxy", &format!("server exited: {error}"));
                 }
             });
             Ok(())
@@ -55,6 +64,8 @@ pub fn run() {
             auth::import_cookie,
             auth::auth_status,
             auth::logout,
+            debug_log,
+            open_log_folder,
             netease::home_feed,
             netease::library_data,
             netease::playlist_detail,
@@ -65,4 +76,14 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Decro Desktop");
+}
+
+#[tauri::command]
+fn debug_log(level: String, target: String, message: String) {
+    logger::log(&level, &target, &message);
+}
+
+#[tauri::command]
+fn open_log_folder() -> Result<(), String> {
+    logger::open_folder()
 }

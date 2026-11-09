@@ -261,6 +261,11 @@ pub async fn qr_login_start(state: State<'_, AppState>) -> Result<QrStart, Strin
     let (unikey, qr_url) = tauri::async_runtime::spawn_blocking(crate::libnetease::qr_start)
         .await
         .map_err(|e| format!("登录线程失败: {e}"))??;
+    crate::logger::log(
+        "debug",
+        "auth",
+        &format!("qr start key_len={} url={}", unikey.len(), qr_url),
+    );
     Ok(QrStart { unikey, qr_url })
 }
 
@@ -290,6 +295,11 @@ pub async fn qr_login_poll(
             .map_err(|e| format!("登录线程失败: {e}"))??;
     let json: Value = serde_json::from_str(&body).map_err(|e| format!("登录状态格式异常: {e}"))?;
     let raw_message = json.get("message").and_then(Value::as_str).unwrap_or("");
+    crate::logger::log(
+        "debug",
+        "auth",
+        &format!("qr poll code={code} body_len={}", body.len()),
+    );
 
     if code == 803 {
         let epoch = state.session_epoch();
@@ -360,6 +370,11 @@ pub async fn import_cookie(
     // still works in memory rather than making the import fail outright.
     let _ = save_cookies(&app, &cookies);
     crate::libnetease::set_cookies(&cookies);
+    crate::logger::log(
+        "info",
+        "auth",
+        &format!("cookie import ok user_id={}", account.user_id),
+    );
     state.set_session(Some(cookies), Some(account.clone()));
     Ok(account)
 }
@@ -386,6 +401,7 @@ pub async fn auth_status(
         return Ok(None);
     }
     crate::libnetease::set_cookies(&cookies);
+    crate::logger::log("info", "auth", "startup session restored");
     state.set_session(Some(cookies), Some(account.clone()));
     Ok(Some(account))
 }
@@ -398,6 +414,7 @@ pub async fn logout(app: AppHandle, state: State<'_, AppState>) -> Result<(), St
         jars.clear();
     }
     state.set_session(None, None);
+    crate::logger::log("info", "auth", "logout completed");
     Ok(())
 }
 
