@@ -10,16 +10,19 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.3.2 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.3.2/Decro.Desktop_0.3.2_x64-setup.exe)
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.0 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.0/Decro.Desktop_0.4.0_x64-setup.exe)
 - 安装包约 **2.49 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.3.2 修复版**：修复播放源被反复重载导致 `play()` 全部被中断、始终无声的问题；保留 0.3.1 的关闭残留修复与 debug 日志。
+- 这是 **0.4.0 版本**：接入 Windows 系统媒体控制（歌曲信息/封面/进度 + 键盘媒体键），并移除未使用的迷你播放器。
 
 ## 当前状态
 
-- **阶段**：0.3.2 · Decro 品牌 + libnetease 登录/播放 + 在线曲库
+- **阶段**：0.4.0 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.4.0 新增 / 移除**：
+  - 接入 Windows SMTC：系统媒体浮层同步歌曲名、歌手、专辑、封面、播放状态和进度；键盘媒体键与系统浮层可播放/暂停、上一首、下一首。
+  - 移除未使用的迷你播放器：标题栏入口、迷你窗口、`?mini` 预览和相关样式/截图删除。
 - **0.3.2 修复**：
   - 修复点击播放后无声的根因：播放源 effect 误订阅了整首歌曲对象，`loadedmetadata` 更新时长时把同一个音源无限重载，导致 `audio.play()` 每次都被 `AbortError` 中断；实测 17 秒内重载 5688 次。
   - 把音源依赖改为 `id + token` 的 memo，并忽略 `AbortError`；`canplay` 时若仍暂停会自动重试播放。
@@ -40,10 +43,10 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
   - 资料库：我的歌单、收藏歌单、我喜欢的音乐、最近播放。
   - 搜索：在线歌曲与歌单，结果可直接播放或打开。
   - 播放：Rust 本地音频代理、Range/seek、播放/暂停、上一首/下一首、队列、音量、进度、真实歌词、喜欢/取消喜欢。
+- Windows 集成：系统媒体浮层（SMTC）同步歌曲名/歌手/封面/进度，键盘媒体键与系统上一首/下一首可用。
   - 低配自动性能模式（4 线程及以下 CPU 默认开启）、500ms 波形播放/暂停交叉淡入淡出。
 - 在线数据来自网易云非官方接口；登录/音源/红心经 `libnetease`，首页/歌单/搜索等仍由 Rust 直连 Web 接口。评论、下载、播客/MV、云盘、听歌上报尚未接入。
 - 如果播放仍无声音：打开 设置 → 实验 → 调试日志，把 `decro.log` 发给开发者；日志不包含 Cookie/token。
-- `?mini` 仍是浏览器预览；安装版点击迷你按钮会提示“下一版接入播放同步”。
 - 最终目标：Tauri 2 + Rust + libnetease 统一数据层 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
 
 ### 致谢
@@ -67,9 +70,9 @@ alpha42 真机截图只保存在本地 `docs/screenshots/apk/`，用于设计研
 |---|---|
 | ![player](docs/screenshots/player.png) | ![detail](docs/screenshots/detail.png) |
 
-| Splash | 迷你播放器（预览） |
+| Splash | 设置 |
 |---|---|
-| ![splash](docs/screenshots/splash.png) | ![mini](docs/screenshots/mini-player.png) |
+| ![splash](docs/screenshots/splash.png) | ![settings](docs/screenshots/settings.png) |
 
 ## 为什么是这套技术栈
 

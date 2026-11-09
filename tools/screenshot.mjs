@@ -66,11 +66,5 @@ await splash.waitForTimeout(1050);
 await splash.screenshot({ path: `${out}/splash.png` });
 await splash.close();
 
-const mini = await pageWith({ width: 440, height: 160 }, "dark");
-await mini.goto(`${base}/?mini`, { waitUntil: "networkidle" });
-await mini.waitForTimeout(400);
-await mini.screenshot({ path: `${out}/mini-player.png` });
-await mini.close();
-
 await browser.close();
 console.log(`Screenshots written to ${out}`);

@@ -27,6 +27,7 @@ import {
 } from "./lib/netease";
 import { formatTime } from "./lib/format";
 import { debugLog, openLogFolder } from "./lib/log";
+import { clearMediaSession, listenMediaControls, updateMediaSession } from "./lib/media";
 import { DetailPage } from "./pages/Detail";
 import { Explore } from "./pages/Explore";
 import { Library } from "./pages/Library";
@@ -382,6 +383,27 @@ export default function App() {
     });
   };
 
+  /** Keep Windows' media flyout and hardware keys in sync with the WebView
+   * player. Position is sent once per second while playing, not per frame. */
+  const syncMediaSession = (positionOverride?: number) => {
+    if (!isTauri()) return;
+    const track = current();
+    if (!isRealTrack(track)) return;
+    const position = audio?.currentTime;
+    const positionSec =
+      positionOverride ?? (Number.isFinite(position) ? (position as number) : progress());
+    updateMediaSession({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      coverUrl: track.coverUrl?.trim() || null,
+      durationMs: Math.max(0, Math.round(track.durationSec * 1000)),
+      positionMs: Math.max(0, Math.round(positionSec * 1000)),
+      playing: playing(),
+    });
+  };
+
   const togglePlay = () => {
     if (isTauri() && (!isRealTrack(current()) || !playback() || !audio)) {
       showToast("歌曲还在加载，请稍候");
@@ -418,6 +440,7 @@ export default function App() {
       }
     }
     setProgress(target);
+    syncMediaSession(target);
   };
 
   const openLiked = () => {
@@ -515,6 +538,7 @@ export default function App() {
       audio.removeAttribute("src");
       audio.load();
     }
+    clearMediaSession();
     showToast("已退出登录");
     void loadCatalog();
   };
@@ -680,6 +704,32 @@ export default function App() {
     if (audio) audio.volume = volume();
   });
 
+  const mediaKey = createMemo(() => `${current().id}:${playing()}:${queue().length}`);
+  let lastMediaTrackId = "";
+  createEffect(on(
+    mediaKey,
+    () => {
+      const id = current().id;
+      const trackChanged = id !== lastMediaTrackId;
+      lastMediaTrackId = id;
+      if (trackChanged) {
+        debugLog("media session track", {
+          id,
+          title: current().title,
+          artist: current().artist,
+        });
+      }
+      syncMediaSession(trackChanged ? 0 : undefined);
+    },
+    { defer: true },
+  ));
+
+  createEffect(() => {
+    if (!isTauri() || !playing()) return;
+    const timer = window.setInterval(syncMediaSession, 1000);
+    onCleanup(() => window.clearInterval(timer));
+  });
+
   createEffect(() => {
     debugLog("play state", { playing: playing(), id: current().id });
   });
@@ -689,6 +739,8 @@ export default function App() {
     initAudio();
     void loadCatalog();
 
+    let unlistenMedia: (() => void) | undefined;
+    let mediaDisposed = false;
     if (isTauri()) {
       const epoch = sessionEpoch;
       void getAuthStatus()
@@ -700,7 +752,41 @@ export default function App() {
           }
         })
         .catch(() => undefined);
+
+      void listenMediaControls((action) => {
+        debugLog("media control", { action });
+        if (action === "play") {
+          if (!playing()) togglePlay();
+        } else if (action === "pause") {
+          setPlaying(false);
+        } else if (action === "next") {
+          nextTrack();
+        } else if (action === "previous") {
+          prevTrack();
+        } else if (action === "stop") {
+          setPlaying(false);
+          setProgress(0);
+          if (audio) {
+            try {
+              audio.currentTime = 0;
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      })
+        .then((unlisten) => {
+          if (mediaDisposed) unlisten();
+          else unlistenMedia = unlisten;
+        })
+        .catch((error) => {
+          debugLog("media control listen failed", { error: String(error) });
+        });
     }
+    onCleanup(() => {
+      mediaDisposed = true;
+      unlistenMedia?.();
+    });
 
     const openLogin = () => setLoginOpen(true);
     window.addEventListener("decro:open-login", openLogin);
@@ -795,17 +881,6 @@ export default function App() {
         onOpenSearch={() => setPaletteOpen(true)}
         account={account()}
         onLogin={() => setLoginOpen(true)}
-        onMini={() => {
-          if (isTauri()) {
-            showToast("迷你播放器将在下一版接入播放同步");
-            return;
-          }
-          window.open(
-            "/?mini",
-            "decro-mini",
-            "width=440,height=160,resizable=no,scrollbars=no,titlebar=no",
-          );
-        }}
         onBack={back}
         onForward={() => undefined}
         onSettings={() => navigate("settings")}

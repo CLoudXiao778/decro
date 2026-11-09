@@ -11,7 +11,6 @@ export function Titlebar(props: {
   onToggleTheme: () => void;
   onToggleRail: () => void;
   onOpenSearch: () => void;
-  onMini: () => void;
   account: Account | null;
   onLogin: () => void;
   onBack: () => void;
@@ -81,9 +80,6 @@ export function Titlebar(props: {
             {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : <Icon name="user" size={15} />}
           </span>
           <span class="titlebar-account__label">{props.account ? props.account.nickname : "登录"}</span>
-        </button>
-        <button class="icon-btn icon-btn--sm" title="迷你播放器" aria-label="迷你播放器" onClick={props.onMini}>
-          <Icon name="grid" size={16} />
         </button>
         <button class="icon-btn icon-btn--sm" title="切换主题" aria-label="切换主题" onClick={props.onToggleTheme}>
           <Icon name={props.theme === "dark" ? "sun" : "moon"} size={17} />

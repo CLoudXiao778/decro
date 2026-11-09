@@ -116,7 +116,7 @@ src-tauri/
     system/
       smtc.rs         # SystemMediaTransportControls
       tray.rs
-      window.rs       # Mica / 窗口状态 / 迷你播放器
+      window.rs       # Mica / 窗口状态
       shortcuts.rs
     commands.rs       # Tauri command 注册
   build.rs
@@ -174,10 +174,9 @@ src-tauri/
 
 ## 5. 系统集成
 
-- **SMTC**：Rust `windows` crate 创建 `SystemMediaTransportControls`（目标）。
+- **SMTC**：通过 WebView2 的 Media Session 桥接接入 Windows 系统媒体浮层与媒体键（`src/lib/media.ts`）。
 - **托盘**：显示/隐藏、播放/暂停、上一首/下一首、退出（目标）。
 - **窗口**：Mica/Acrylic、圆角、状态记忆、单实例、关闭到托盘（目标）。
-- **迷你播放器**：当前仍是独立 `?mini` 预览页，尚未与主窗口播放状态同步。
 
 ## 6. 安全与隐私
 
@@ -191,7 +190,7 @@ src-tauri/
 ## 7. 后续演进
 
 1. 用 libnetease 替换 `netease.rs` 的直接 HTTP，保留命令边界。
-2. 把播放队列/进度迁到 Rust，主窗口与迷你播放器共享状态。
+2. 把播放队列/进度迁到 Rust，统一主窗口与系统媒体会话状态。
 3. SQLite 缓存歌单/歌词/喜欢；音频分段缓存。
-4. 增加 SMTC、媒体键、托盘、听歌上报。
+4. 增加系统托盘、听歌上报与 SMTC seek 支持。
 5. 补齐评论、下载、播客/MV、云盘等外围能力。

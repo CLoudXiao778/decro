@@ -40,7 +40,6 @@
 | 底部 dock | 默认 | 72px 高胶囊 | 控制、进度、快速喜欢、展开 |
 | 右侧播放栏 | 宽屏常驻 | 332px | 封面、歌词预览、队列、信息 |
 | 沉浸播放页 | 点击 dock / 右侧栏 / L | 覆盖标题栏以下 | 大封面、完整歌词、队列抽屉 |
-| 迷你播放器 | 标题栏按钮 / `?mini` | 420×128 | 置顶小窗；Tauri 独立窗口待接入 |
 
 ## 4. 内容页
 
@@ -104,11 +103,10 @@
 | Mica / Acrylic | `window-vibrancy`，Win11 Mica，Win10 Acrylic/纯色 |
 | 窗口控制 | 最小化/最大化/关闭；后续 Snap Layout |
 | 托盘 | 显示/隐藏、播放控制、退出 |
-| SMTC | `windows` crate 创建 SystemMediaTransportControls，封面/标题/进度 |
+| SMTC | `windows` crate 创建 SystemMediaTransportControls，已同步标题/歌手/封面/进度与媒体键 |
 | 媒体键 | SMTC 接管；global-shortcut 作为补充 |
 | 通知 | 切歌/错误；默认关闭 |
 | 窗口状态 | 记忆尺寸/位置/最大化，多显示器 clamp |
-| 迷你播放器 | 独立 420×128 置顶窗口（前端已预览，Tauri 窗口待接入） |
 | 单实例 | 二次启动唤回主窗 |
 | 自动更新 | Tauri updater + 签名（后续） |
 
