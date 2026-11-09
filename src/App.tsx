@@ -365,12 +365,15 @@ export default function App() {
       hasSrc: !!audio.src,
     });
     void audio.play().catch((error) => {
-      setPlaying(false);
       const name = error instanceof DOMException ? error.name : "";
       debugLog("audio play rejected", {
         name,
         message: error instanceof Error ? error.message : String(error),
       });
+      // A source swap aborts the previous play() promise. Keep the playing
+      // state so the new source starts as soon as it can play.
+      if (name === "AbortError") return;
+      setPlaying(false);
       showToast(
         name === "NotAllowedError"
           ? "播放被系统拦截，请再点一次播放按钮"
@@ -526,6 +529,8 @@ export default function App() {
     });
     audio.addEventListener("canplay", () => {
       debugLog("audio canplay", { id: current().id });
+      // Retry after a load interrupted the first play() attempt.
+      if (audio && playing() && audio.paused && !audioFailed) attemptPlay();
     });
     audio.addEventListener("playing", () => {
       debugLog("audio playing", { id: current().id });
@@ -557,11 +562,15 @@ export default function App() {
         duration: Number.isFinite(duration) ? duration : 0,
       });
       if (Number.isFinite(duration) && duration > 0) {
-        setCurrent((previous) => ({
-          ...previous,
-          durationSec: duration,
-          duration: formatTime(duration),
-        }));
+        setCurrent((previous) =>
+          Math.abs(previous.durationSec - duration) < 0.25
+            ? previous
+            : {
+                ...previous,
+                durationSec: duration,
+                duration: formatTime(duration),
+              },
+        );
       }
       applyPendingSeek();
     });
@@ -635,8 +644,13 @@ export default function App() {
     onCleanup(() => window.clearInterval(timer));
   });
 
+  // Track the id/token as a memo. Reading `current()` directly in the effect
+  // would also subscribe to duration updates from `loadedmetadata`, which
+  // reloads the same source forever and aborts every play() request.
+  const audioKey = createMemo(() => `${current().id}:${playback()?.token ?? ""}`);
+
   createEffect(on(
-    () => `${current().id}:${playback()?.token ?? ""}`,
+    audioKey,
     () => {
       if (!audio || !playback()) return;
       if (!isRealTrack(current())) return;

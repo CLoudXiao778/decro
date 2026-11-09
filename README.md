@@ -10,16 +10,20 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.3.1 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.3.1/Decro.Desktop_0.3.1_x64-setup.exe)
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.3.2 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.3.2/Decro.Desktop_0.3.2_x64-setup.exe)
 - 安装包约 **2.49 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.3.1 修复版**：改用 Cirro 原项目的 `libnetease` 处理扫码、音源签名与红心；新增播放/登录 debug 日志与关闭播放页残留修复。
+- 这是 **0.3.2 修复版**：修复播放源被反复重载导致 `play()` 全部被中断、始终无声的问题；保留 0.3.1 的关闭残留修复与 debug 日志。
 
 ## 当前状态
 
-- **阶段**：0.3.1 · Decro 品牌 + libnetease 登录/播放 + 在线曲库
+- **阶段**：0.3.2 · Decro 品牌 + libnetease 登录/播放 + 在线曲库
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.3.2 修复**：
+  - 修复点击播放后无声的根因：播放源 effect 误订阅了整首歌曲对象，`loadedmetadata` 更新时长时把同一个音源无限重载，导致 `audio.play()` 每次都被 `AbortError` 中断；实测 17 秒内重载 5688 次。
+  - 把音源依赖改为 `id + token` 的 memo，并忽略 `AbortError`；`canplay` 时若仍暂停会自动重试播放。
+  - 日志新增可确认的 `audio canplay` / `audio playing` 阶段，继续在 设置 → 实验 → 调试日志 查看。
 - **0.3.1 修复 / 诊断**：
   - 修复关闭沉浸播放页后残留大封面/播放层的问题（关闭时封面飞回 dock，结束后强制隐藏播放层与克隆层）。
   - 加入 debug 日志：设置 → 实验 → 调试日志，可打开日志目录；日志覆盖登录、libnetease 请求、音源解析、代理 Range、audio 生命周期与播放拒绝原因。

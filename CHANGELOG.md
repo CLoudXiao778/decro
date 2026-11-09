@@ -10,6 +10,22 @@
 - SMTC、媒体键、系统托盘、迷你播放器与主窗口播放状态同步。
 - 更完整的歌单管理（创建、收藏、排序）与逐字歌词。
 
+## [0.3.2] - 2026-11-09
+
+修复点击播放后始终无声的问题。
+
+### Fixed
+
+- 修复播放源 effect 误订阅整个 `current()` 歌曲对象的问题：`loadedmetadata` 更新时长会创建新对象，触发 effect 重新设置 `audio.src` 并 `load()`，形成无限循环。0.3.1 日志实测 17 秒内重载同一首歌 5688 次。
+- 该循环会让每次 `audio.play()` 都被新的 load 中断（`AbortError: The play() request was interrupted by a new load request.`），因此没有声音、也没有可用的播放状态。
+- 音源依赖改为 `id + token` 的 `createMemo`，只在歌曲或代理 token 真正变化时重载；`loadedmetadata` 的时长更新加入 0.25s 容差，避免无意义的状态写入。
+- `AbortError` 不再当作播放失败弹窗或停止播放；`canplay` 时如果仍处于暂停状态会自动重试播放。
+- 新增 `audio canplay`、`audio playing` 日志，便于确认播放链路是否走完。
+
+### Changed
+
+- 版本号 0.3.2；其余功能与 0.3.1 相同。
+
 ## [0.3.1] - 2026-11-09
 
 播放诊断与界面收尾修复。
