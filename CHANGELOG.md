@@ -20,6 +20,8 @@
 - 改为同一个 SVG `path`：播放时是持续横向流动的波浪线，暂停时在 500ms 内从曲线形变为直线，恢复时再形变为曲线。
 - 波形滚动改用 `transform: translateX`，低性能模式仍为 2.4s；`prefers-reduced-motion` 下关闭滚动并即时切换形态。
 - 版本号 0.4.1；其余功能与 0.4.0 相同。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.4.1`，约 **2.49 MiB**（2,610,536 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`1449073959a505ec744beafb6df945cef5503d94873b2ededb9d7c6dd84cc562`。
 
 ## [0.4.0] - 2026-11-09
 
