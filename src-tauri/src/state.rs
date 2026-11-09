@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const API_BASE: &str = "https://music.163.com";
-pub const INTERFACE_BASE: &str = "https://interface.music.163.com";
 pub const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -112,11 +111,6 @@ impl AppState {
         if let Ok(mut cache) = self.url_cache.lock() {
             cache.clear();
         }
-    }
-
-    pub fn csrf_token(&self) -> Option<String> {
-        let cookies = self.cookie_header()?;
-        cookie_value(&cookies, "__csrf")
     }
 }
 

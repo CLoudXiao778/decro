@@ -66,16 +66,16 @@ npm run tauri build -- --bundles nsis
 
 产物：
 
-- `src-tauri/target/release/bundle/nsis/*.exe`（本地文件名为 `Decro Desktop_0.2.1_x64-setup.exe`；
-  GitHub Release 会把空格转成点，资源名为 `Decro.Desktop_0.2.1_x64-setup.exe`，约 1.83 MiB）
+- `src-tauri/target/release/bundle/nsis/*.exe`（0.3.0 本地文件名为 `Decro Desktop_0.3.0_x64-setup.exe`；
+  GitHub Release 会把空格转成点，资源名为 `Decro.Desktop_0.3.0_x64-setup.exe`）
 - 可选：portable zip（复制 exe + WebView2 引导）
 
 ### GitHub Actions（推荐）
 
 `windows-latest` 工作流：
 
-1. checkout（含 submodule；若接入 libnetease）
-2. setup Node + Rust + CMake/MSVC
+1. checkout（递归拉取 `vendor/libnetease` 子模块）
+2. setup Node + Rust + MSVC（`cc` 编译 libnetease，不需要 libcurl）
 3. `npm ci`
 4. `npm run build`
 5. `cargo tauri build --bundles nsis`
@@ -116,7 +116,7 @@ jobs:
 | Tauri/Rust exe（strip + LTO + opt-level=z） | 4–6 MB |
 | Web 资源（JS/CSS/字体子集/图标） | 0.6–1.2 MB |
 | SQLite + libnetease + QR | 1.5–2.5 MB |
-| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.1.0 实测 1.53 MiB，0.1.1 实测 1.72 MiB，0.2.0 实测 1.83 MiB，0.2.1 实测 1.83 MiB）** |
+| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.2.1 实测 1.83 MiB；0.3.0 含 libnetease，待测）** |
 | 安装后 | 20–35 MB |
 | WebView2 | 系统自带；缺失时引导安装 |
 | ONNX 人声分离 | 不打包；设置页已移除入口 |
@@ -141,9 +141,10 @@ jobs:
 ## 6. 测试
 
 - 前端：`tsc --noEmit`、Vitest（后续加入歌词解析/颜色量化）。
-- Rust：`cargo test` 覆盖 cookie 规范化；模型归一化、Range/代理响应与扫码流程目前依赖 Windows 手工验收。
+- Rust：`cargo test` 覆盖 cookie 规范化；libnetease C 静态库由 `cc` 在构建时编译；模型归一化、Range/代理响应、真实扫码/播放依赖 Windows 手工验收。
 - 视觉：Playwright 截图对比（亮/暗、1440/1120/960、播放页打开）。
 - 手工：Windows 10/11、125%/150% DPI、多显示器、睡眠恢复、断网、二维码过期/取消/扫码成功、退出后重启。
+- libnetease 链路：网页版 Cookie 导入后播放免费歌曲；VIP/版权歌曲应给明确错误；红心写回；扫码状态 801/802/803。
 - 在线链路：登录后首页/资料库/搜索是否出数据；歌单详情是否可打开；免费歌曲是否可播放/拖动进度；VIP/版权歌曲是否给出明确错误；喜欢/取消喜欢是否写回。
 - 风控链路：二维码被 -462/8821 拦截时是否停止轮询并显示原因；Cookie 导入是否可用。
 - 性能：启动 < 2s、交互 60fps、内存 < 300MB（不含缓存）；低配模式在 4 线程 CPU 上默认开启。

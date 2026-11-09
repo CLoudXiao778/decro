@@ -1,0 +1,480 @@
+//! Safe-ish FFI boundary around the original Cirro `libnetease` C library.
+//!
+//! The library provides the weapi/eapi signing and cookie jar that NetEase
+//! expects; Decro injects a reqwest-backed transport instead of libcurl.
+//! Only the endpoints Decro needs (QR login, song URL, like) are wrapped here.
+
+use std::ffi::{c_char, c_void, CStr, CString};
+use std::ptr;
+use std::sync::{Mutex, OnceLock};
+
+use libc::c_long;
+use serde_json::Value;
+
+const USER_AGENT: &str =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+#[repr(C)]
+struct NeHttpResp {
+    status: c_long,
+    body: *mut c_char,
+    body_len: usize,
+    err: *mut c_char,
+    set_cookies: *mut c_char,
+}
+
+#[repr(C)]
+struct NeHttpTransport {
+    request: Option<
+        unsafe extern "C" fn(
+            url: *const c_char,
+            method: *const c_char,
+            body: *const c_char,
+            content_type: *const c_char,
+            cookie_header: *const c_char,
+            user_agent: *const c_char,
+        ) -> *mut NeHttpResp,
+    >,
+}
+
+#[repr(C)]
+struct NeResp {
+    code: f64,
+    http_status: c_long,
+    body: *mut c_char,
+    body_len: usize,
+    err: i32,
+}
+
+extern "C" {
+    fn ne_http_set_transport(transport: *const NeHttpTransport);
+    fn ne_set_api_base(base: *const c_char);
+    fn ne_set_cookie_file(path: *const c_char);
+    fn ne_jar_reload();
+    fn ne_jar_import_cookies(cookie_str: *const c_char);
+    fn ne_global_jar() -> *mut c_void;
+    fn ne_jar_cookie_header(jar: *const c_void) -> *mut c_char;
+    fn ne_set_risk_retry(max_attempts: i32);
+
+    fn ne_qr_get_key(
+        code_out: *mut f64,
+        body_out: *mut *mut c_char,
+        body_len: *mut usize,
+    ) -> *mut c_char;
+    fn ne_qr_check(unikey: *const c_char, code_out: *mut f64, body_len: *mut usize) -> *mut c_char;
+    fn ne_qr_build_url(unikey: *const c_char) -> *mut c_char;
+
+    fn ne_song_url_v1(id: *const c_char, level: *const c_char) -> *mut NeResp;
+    fn ne_song_like(track_id: *const c_char, like: *const c_char) -> *mut NeResp;
+    fn ne_resp_free(resp: *mut NeResp);
+    fn decro_alloc(size: usize) -> *mut c_void;
+    fn decro_free(ptr: *mut c_void);
+}
+
+static TRANSPORT: NeHttpTransport = NeHttpTransport {
+    request: Some(transport_request),
+};
+
+static INIT: OnceLock<()> = OnceLock::new();
+static LIB_LOCK: Mutex<()> = Mutex::new(());
+static CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
+
+fn lock() -> std::sync::MutexGuard<'static, ()> {
+    LIB_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn cstring(value: &str) -> CString {
+    CString::new(value).unwrap_or_else(|_| CString::new("").expect("empty CString"))
+}
+
+fn cookie_path() -> CString {
+    // Keep libnetease's jar in memory only. The DPAPI file owned by auth.rs is
+    // the single persistent copy of the session.
+    cstring(if cfg!(windows) { "NUL" } else { "/dev/null" })
+}
+
+pub fn init() {
+    INIT.get_or_init(|| {
+        // Browser-like headers reduce HTTP fingerprint differences without
+        // faking an IP or bypassing any verification.
+        std::env::set_var("NE_BROWSER_HEADERS", "1");
+        unsafe {
+            ne_set_api_base(cstring("https://music.163.com").as_ptr());
+            ne_set_cookie_file(cookie_path().as_ptr());
+            ne_http_set_transport(&TRANSPORT);
+            ne_set_risk_retry(2);
+        }
+    });
+}
+
+pub fn set_cookies(cookies: &str) {
+    init();
+    let _guard = lock();
+    let path = cookie_path();
+    let raw = cstring(cookies);
+    unsafe {
+        ne_set_cookie_file(path.as_ptr());
+        ne_jar_reload();
+        ne_jar_import_cookies(raw.as_ptr());
+    }
+}
+
+pub fn clear_cookies() {
+    init();
+    let _guard = lock();
+    unsafe {
+        ne_set_cookie_file(cookie_path().as_ptr());
+        ne_jar_reload();
+    }
+}
+
+pub fn cookie_header() -> String {
+    init();
+    let _guard = lock();
+    unsafe {
+        let jar = ne_global_jar();
+        if jar.is_null() {
+            return String::new();
+        }
+        let ptr = ne_jar_cookie_header(jar);
+        take_c_string(ptr)
+    }
+}
+
+pub fn qr_start() -> Result<(String, String), String> {
+    init();
+    let _guard = lock();
+    unsafe {
+        let mut code = 0.0f64;
+        let mut body_ptr = ptr::null_mut();
+        let mut body_len = 0usize;
+        let key_ptr = ne_qr_get_key(&mut code, &mut body_ptr, &mut body_len);
+        let key = take_c_string(key_ptr);
+        let body = take_c_string(body_ptr);
+        if key.is_empty() {
+            return Err(qr_error(&body, code, "网易云未返回二维码 key"));
+        }
+        let url_ptr = ne_qr_build_url(cstring(&key).as_ptr());
+        let url = take_c_string(url_ptr);
+        if url.is_empty() {
+            return Err("网易云未返回二维码地址".to_string());
+        }
+        Ok((key, url))
+    }
+}
+
+pub fn qr_check(unikey: &str) -> Result<(i32, String), String> {
+    init();
+    let _guard = lock();
+    unsafe {
+        let mut code = 0.0f64;
+        let mut body_len = 0usize;
+        let body_ptr = ne_qr_check(cstring(unikey).as_ptr(), &mut code, &mut body_len);
+        let body = take_c_string(body_ptr);
+        if body.is_empty() {
+            return Err("网易云登录状态响应为空".to_string());
+        }
+        Ok((code as i32, body))
+    }
+}
+
+pub fn song_url(id: &str, level: &str) -> Result<String, String> {
+    init();
+    let _guard = lock();
+    unsafe {
+        let resp = ne_song_url_v1(cstring(id).as_ptr(), cstring(level).as_ptr());
+        let (code, err, body) = take_resp(resp)?;
+        let json: Value =
+            serde_json::from_str(&body).map_err(|e| format!("音源响应格式异常: {e}"))?;
+        if let Some(url) = json
+            .pointer("/data/0/url")
+            .and_then(Value::as_str)
+            .filter(|url| !url.is_empty())
+        {
+            return Ok(url.to_string());
+        }
+        if let Some(trial) = json.pointer("/data/0/freeTrialInfo") {
+            if !trial.is_null() {
+                return Err("该歌曲仅提供试听片段（需要会员）".to_string());
+            }
+        }
+        let message = json
+            .pointer("/data/0/message")
+            .and_then(Value::as_str)
+            .filter(|message| !message.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("该歌曲暂不可播放（code={code}）"));
+        if !err.is_empty() {
+            Err(err)
+        } else {
+            Err(message)
+        }
+    }
+}
+
+pub fn song_like(id: &str, like: bool) -> Result<(), String> {
+    init();
+    let _guard = lock();
+    unsafe {
+        let resp = ne_song_like(
+            cstring(id).as_ptr(),
+            cstring(if like { "true" } else { "false" }).as_ptr(),
+        );
+        let (code, err, body) = take_resp(resp)?;
+        if code == 200 {
+            return Ok(());
+        }
+        let message = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|json| {
+                json.get("message")
+                    .or_else(|| json.get("msg"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .filter(|message| !message.is_empty())
+            .unwrap_or_else(|| {
+                if err.is_empty() {
+                    format!("喜欢操作失败（code={code}）")
+                } else {
+                    err
+                }
+            });
+        Err(message)
+    }
+}
+
+fn qr_error(body: &str, code: f64, fallback: &str) -> String {
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|json| {
+            json.get("message")
+                .or_else(|| json.get("msg"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .filter(|message| !message.is_empty())
+        .unwrap_or_else(|| {
+            if code != 0.0 && code != 200.0 {
+                format!("{fallback}（code={code:.0}）")
+            } else {
+                fallback.to_string()
+            }
+        })
+}
+
+unsafe fn take_resp(resp: *mut NeResp) -> Result<(i64, String, String), String> {
+    if resp.is_null() {
+        return Err("libnetease 返回空响应".to_string());
+    }
+    let body = if (*resp).body.is_null() {
+        String::new()
+    } else {
+        let bytes = std::slice::from_raw_parts((*resp).body as *const u8, (*resp).body_len);
+        String::from_utf8_lossy(bytes).into_owned()
+    };
+    let err = if (*resp).err == 0 {
+        String::new()
+    } else {
+        let text = if (*resp).body.is_null() {
+            String::new()
+        } else {
+            String::from_utf8_lossy(std::slice::from_raw_parts(
+                (*resp).body as *const u8,
+                (*resp).body_len,
+            ))
+            .into_owned()
+        };
+        text
+    };
+    let code = (*resp).code as i64;
+    let http_status = (*resp).http_status;
+    ne_resp_free(resp);
+    if code == 0 && http_status == 0 && !err.is_empty() {
+        return Err(err);
+    }
+    Ok((code, err, body))
+}
+
+unsafe fn take_c_string(ptr: *mut c_char) -> String {
+    if ptr.is_null() {
+        return String::new();
+    }
+    let value = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+    decro_free(ptr as *mut c_void);
+    value
+}
+
+unsafe fn read_c_string(ptr: *const c_char) -> String {
+    if ptr.is_null() {
+        String::new()
+    } else {
+        CStr::from_ptr(ptr).to_string_lossy().into_owned()
+    }
+}
+
+fn client() -> &'static reqwest::blocking::Client {
+    CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(8))
+            .timeout(std::time::Duration::from_secs(20))
+            .gzip(true)
+            .build()
+            .unwrap_or_else(|_| reqwest::blocking::Client::new())
+    })
+}
+
+unsafe extern "C" fn transport_request(
+    url: *const c_char,
+    method: *const c_char,
+    body: *const c_char,
+    content_type: *const c_char,
+    cookie_header: *const c_char,
+    user_agent: *const c_char,
+) -> *mut NeHttpResp {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        transport_impl(url, method, body, content_type, cookie_header, user_agent)
+    }));
+    match result {
+        Ok(response) => response,
+        Err(_) => make_response(0, Vec::new(), None, Some("transport panic".to_string())),
+    }
+}
+
+unsafe fn transport_impl(
+    url: *const c_char,
+    method: *const c_char,
+    body: *const c_char,
+    content_type: *const c_char,
+    cookie_header: *const c_char,
+    user_agent: *const c_char,
+) -> *mut NeHttpResp {
+    let url = read_c_string(url);
+    if url.is_empty() {
+        return make_response(0, Vec::new(), None, Some("empty transport URL".to_string()));
+    }
+    let method = read_c_string(method);
+    let body = read_c_string(body);
+    let content_type = read_c_string(content_type);
+    let cookie = read_c_string(cookie_header);
+    let agent = read_c_string(user_agent);
+
+    let request_method = if method.eq_ignore_ascii_case("GET") {
+        reqwest::Method::GET
+    } else {
+        reqwest::Method::POST
+    };
+    let mut request = client()
+        .request(request_method, &url)
+        .header(reqwest::header::REFERER, "https://music.163.com/")
+        .header(reqwest::header::ACCEPT, "*/*")
+        .header(
+            reqwest::header::USER_AGENT,
+            if agent.is_empty() { USER_AGENT } else { &agent },
+        );
+    if !cookie.is_empty() {
+        request = request.header(reqwest::header::COOKIE, cookie);
+    }
+    if !body.is_empty() {
+        request = request.header(
+            reqwest::header::CONTENT_TYPE,
+            if content_type.is_empty() {
+                "application/x-www-form-urlencoded"
+            } else {
+                content_type.as_str()
+            },
+        );
+        request = request.body(body);
+    }
+
+    match request.send() {
+        Ok(response) => {
+            let status = response.status().as_u16() as c_long;
+            let set_cookies = response
+                .headers()
+                .get_all(reqwest::header::SET_COOKIE)
+                .iter()
+                .filter_map(|value| value.to_str().ok())
+                .filter(|value| !value.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n");
+            match response.bytes() {
+                Ok(bytes) => make_response(
+                    status,
+                    bytes.to_vec(),
+                    if set_cookies.is_empty() {
+                        None
+                    } else {
+                        Some(set_cookies)
+                    },
+                    None,
+                ),
+                Err(error) => make_response(
+                    status,
+                    Vec::new(),
+                    None,
+                    Some(format!("response read failed: {error}")),
+                ),
+            }
+        }
+        Err(error) => make_response(
+            0,
+            Vec::new(),
+            None,
+            Some(format!("transport request failed: {error}")),
+        ),
+    }
+}
+
+fn make_response(
+    status: c_long,
+    body: Vec<u8>,
+    set_cookies: Option<String>,
+    err: Option<String>,
+) -> *mut NeHttpResp {
+    unsafe {
+        let body_ptr = alloc_bytes(&body);
+        let err_ptr = err
+            .as_deref()
+            .map(|value| alloc_c_string(value))
+            .unwrap_or(ptr::null_mut());
+        let cookies_ptr = set_cookies
+            .as_deref()
+            .map(|value| alloc_c_string(value))
+            .unwrap_or(ptr::null_mut());
+        let response = decro_alloc(std::mem::size_of::<NeHttpResp>()) as *mut NeHttpResp;
+        if response.is_null() {
+            decro_free(body_ptr as *mut c_void);
+            decro_free(err_ptr as *mut c_void);
+            decro_free(cookies_ptr as *mut c_void);
+            return ptr::null_mut();
+        }
+        ptr::write(
+            response,
+            NeHttpResp {
+                status,
+                body: body_ptr,
+                body_len: body.len(),
+                err: err_ptr,
+                set_cookies: cookies_ptr,
+            },
+        );
+        response
+    }
+}
+
+unsafe fn alloc_bytes(bytes: &[u8]) -> *mut c_char {
+    let ptr = decro_alloc(bytes.len() + 1) as *mut u8;
+    if ptr.is_null() {
+        return ptr::null_mut();
+    }
+    ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len());
+    *ptr.add(bytes.len()) = 0;
+    ptr as *mut c_char
+}
+
+unsafe fn alloc_c_string(value: &str) -> *mut c_char {
+    alloc_bytes(value.as_bytes())
+}

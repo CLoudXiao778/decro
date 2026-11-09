@@ -1,4 +1,5 @@
 mod auth;
+mod libnetease;
 mod netease;
 mod proxy;
 mod secure_store;
@@ -15,6 +16,7 @@ fn random_token() -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    libnetease::init();
     let listener =
         std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind local audio proxy");
     let address = listener

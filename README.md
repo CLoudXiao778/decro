@@ -10,16 +10,20 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.2.1 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.2.1/Decro.Desktop_0.2.1_x64-setup.exe)
-- 安装包约 **1.83 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.3.0 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.3.0/Decro.Desktop_0.3.0_x64-setup.exe)
+- 安装包体积见 Release 页面；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.2.1 Decro 品牌版**：扫码登录后可读取你的歌单、最近播放与每日推荐，并直接播放网易云音源；旧版登录凭证会自动迁移。
+- 这是 **0.3.0 修复版**：改用 Cirro 原项目的 `libnetease` 处理扫码、音源签名与红心；登录后可读取歌单、最近播放与每日推荐，并直接播放网易云音源。
 
 ## 当前状态
 
-- **阶段**：0.2.1 · Decro 品牌 + 扫码登录 + 在线曲库 + 播放
+- **阶段**：0.3.0 · Decro 品牌 + libnetease 登录/播放 + 在线曲库
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.3.0 修复**：
+  - 接入 Cirro 原项目的 **libnetease**（C 子模块）处理扫码登录、`os/appver` 音源签名和红心；不再手写网易云加密/播放 URL。
+  - 修复 weapi 请求缺少 `Content-Type` 导致网易云返回空 body 的问题；这是之前播放全部失败的根因之一。
+  - 保留网页版 Cookie 导入；导入后会同步到 libnetease 的会话 jar。
 - **0.2.1 实装**：
   - 项目/应用/安装包/包标识符统一改名为 **Decro**；旧 `cirrodesktop` 登录凭证自动迁移到 `decrodesktop`。
   - 新的 D 字标记与 Decro 品牌文案；设置页和登录页加入对 Cirro 原项目的感谢。
@@ -29,13 +33,14 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
   - 搜索：在线歌曲与歌单，结果可直接播放或打开。
   - 播放：Rust 本地音频代理、Range/seek、播放/暂停、上一首/下一首、队列、音量、进度、真实歌词、喜欢/取消喜欢。
   - 低配自动性能模式（4 线程及以下 CPU 默认开启）、500ms 波形播放/暂停交叉淡入淡出。
-- 在线数据来自网易云非官方 Web 接口；评论、下载、播客/MV、云盘、听歌上报尚未接入。
+- 在线数据来自网易云非官方接口；登录/音源/红心经 `libnetease`，首页/歌单/搜索等仍由 Rust 直连 Web 接口。评论、下载、播客/MV、云盘、听歌上报尚未接入。
 - `?mini` 仍是浏览器预览；安装版点击迷你按钮会提示“下一版接入播放同步”。
-- 最终目标：Tauri 2 + Rust 后端 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
+- 最终目标：Tauri 2 + Rust + libnetease 统一数据层 + 系统 WebView2，安装包控制在 8–12 MB（不含 WebView2）。
 
 ### 致谢
 
 - **Cirro 原项目**：[ThripleQ/cirro](https://github.com/ThripleQ/cirro) — 设计语言、交互与动效的源头；Decro 是非官方重制，感谢原作者。
+- **libnetease**：[ThripleQ/libnetease](https://github.com/ThripleQ/libnetease) — Cirro 的 C 请求内核，0.3.0 起用于扫码、音源与红心。
 - **alpha42 真机截图** — 用于设计研究，仅本地保留，不随仓库发布。
 - **Inter / Tauri / SolidJS / 所有开源依赖** — 各自许可证见 `THIRD_PARTY.md` 与锁文件。
 
@@ -94,7 +99,7 @@ src/
   data/           # 浏览器预览数据
   lib/            # 扫码登录、在线 API 适配、播放配置、时间/插值
   styles/         # tokens / base / app / pages
-src-tauri/        # Rust 后端：登录、在线 API、本地音频代理、DPAPI 凭证
+src-tauri/        # Rust 后端：libnetease 子模块、在线 API、本地音频代理、DPAPI
 docs/             # 设计、动效、APK 分析、架构、构建、登录
 public/fonts/     # Inter（OFL）
 ```

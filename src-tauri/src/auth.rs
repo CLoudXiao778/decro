@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
 use crate::secure_store;
-use crate::state::{Account, AppState, API_BASE, INTERFACE_BASE};
+use crate::state::{Account, AppState, API_BASE};
 
 const AUTH_FILE: &str = "netease-auth.bin";
 const LEGACY_IDENTIFIER: &str = "io.github.cloudxiao778.cirrodesktop";
@@ -24,13 +24,6 @@ pub struct QrPoll {
     pub code: i32,
     pub message: String,
     pub account: Option<Account>,
-}
-
-fn now_ms() -> u128 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or(0)
 }
 
 fn auth_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -265,51 +258,10 @@ fn normalize_cookie_input(raw: &str) -> Result<String, String> {
 #[tauri::command]
 pub async fn qr_login_start(state: State<'_, AppState>) -> Result<QrStart, String> {
     let _guard = state.qr_poll_lock.lock().await;
-    let response = state
-        .api
-        .post(format!(
-            "{INTERFACE_BASE}/api/login/qrcode/unikey?timestamp={}",
-            now_ms()
-        ))
-        .header(reqwest::header::REFERER, format!("{API_BASE}/"))
-        .header(reqwest::header::ORIGIN, API_BASE)
-        .header(reqwest::header::CACHE_CONTROL, "no-cache")
-        .form(&[("type", "3")])
-        .send()
+    let (unikey, qr_url) = tauri::async_runtime::spawn_blocking(crate::libnetease::qr_start)
         .await
-        .map_err(|e| format!("获取登录二维码失败: {e}"))?;
-
-    let mut jar = BTreeMap::new();
-    merge_set_cookies(response.headers(), &mut jar);
-
-    let json: Value = response
-        .json()
-        .await
-        .map_err(|e| format!("登录二维码格式异常: {e}"))?;
-    let unikey = json
-        .get("unikey")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            let message = json
-                .get("message")
-                .and_then(Value::as_str)
-                .unwrap_or("网易云未返回二维码 key，请稍后重试");
-            message.to_string()
-        })?
-        .to_string();
-
-    let mut jars = state
-        .qr_jars
-        .lock()
-        .map_err(|_| "登录状态锁失败".to_string())?;
-    // Only one login dialog is active at a time; drop abandoned keys.
-    jars.clear();
-    jars.insert(unikey.clone(), jar);
-
-    Ok(QrStart {
-        qr_url: format!("{API_BASE}/login?codekey={unikey}"),
-        unikey,
-    })
+        .map_err(|e| format!("登录线程失败: {e}"))??;
+    Ok(QrStart { unikey, qr_url })
 }
 
 fn poll_message(code: i32, raw: &str) -> String {
@@ -331,50 +283,26 @@ pub async fn qr_login_poll(
     key: String,
 ) -> Result<QrPoll, String> {
     let _guard = state.qr_poll_lock.lock().await;
-    let jar = state
-        .qr_jars
-        .lock()
-        .map_err(|_| "登录状态锁失败".to_string())?
-        .get(&key)
-        .cloned()
-        .unwrap_or_default();
-
-    let mut request = state
-        .api
-        .post(format!("{INTERFACE_BASE}/api/login/qrcode/client/login"))
-        .header(reqwest::header::REFERER, format!("{API_BASE}/"))
-        .header(reqwest::header::ORIGIN, API_BASE)
-        .form(&[("key", key.as_str()), ("type", "3")]);
-    if !jar.is_empty() {
-        request = request.header(reqwest::header::COOKIE, cookie_header(&jar));
-    }
-    let response = request
-        .send()
-        .await
-        .map_err(|e| format!("轮询登录状态失败: {e}"))?;
-
-    let mut jar = state
-        .qr_jars
-        .lock()
-        .map_err(|_| "登录状态锁失败".to_string())?
-        .remove(&key)
-        .unwrap_or_default();
-    merge_set_cookies(response.headers(), &mut jar);
-
-    let json: Value = response
-        .json()
-        .await
-        .map_err(|e| format!("登录状态格式异常: {e}"))?;
-    let code = json.get("code").and_then(Value::as_i64).unwrap_or(0) as i32;
+    let key_for_call = key.clone();
+    let (code, body) =
+        tauri::async_runtime::spawn_blocking(move || crate::libnetease::qr_check(&key_for_call))
+            .await
+            .map_err(|e| format!("登录线程失败: {e}"))??;
+    let json: Value = serde_json::from_str(&body).map_err(|e| format!("登录状态格式异常: {e}"))?;
     let raw_message = json.get("message").and_then(Value::as_str).unwrap_or("");
 
     if code == 803 {
         let epoch = state.session_epoch();
-        let cookies = cookie_header(&jar);
+        let cookies = crate::libnetease::cookie_header();
+        if cookies.is_empty() {
+            return Err("扫码成功，但未能读取登录凭证；请重试".to_string());
+        }
         let cookies = if crate::state::cookie_value(&cookies, "__csrf").is_some() {
             cookies
         } else {
-            refresh_session_cookies(&state, &cookies).await
+            let refreshed = refresh_session_cookies(&state, &cookies).await;
+            crate::libnetease::set_cookies(&refreshed);
+            refreshed
         };
         let mut account = fetch_account_with_retry(&state, &cookies).await;
         if account.is_none() {
@@ -387,10 +315,8 @@ pub async fn qr_login_poll(
                 account: None,
             });
         }
-        if !cookies.is_empty() {
-            let _ = save_cookies(&app, &cookies);
-            state.set_session(Some(cookies), account.clone());
-        }
+        let _ = save_cookies(&app, &cookies);
+        state.set_session(Some(cookies), account.clone());
         let message = if account.is_some() {
             "登录成功，正在同步你的音乐库".to_string()
         } else {
@@ -401,15 +327,6 @@ pub async fn qr_login_poll(
             message,
             account,
         });
-    }
-
-    // Session-only cookies are not committed until code 803 + profile success.
-    if code == 801 || code == 802 {
-        state
-            .qr_jars
-            .lock()
-            .map_err(|_| "登录状态锁失败".to_string())?
-            .insert(key, jar);
     }
 
     Ok(QrPoll {
@@ -442,6 +359,7 @@ pub async fn import_cookie(
     // Persistence may be unavailable on non-Windows dev builds; the session
     // still works in memory rather than making the import fail outright.
     let _ = save_cookies(&app, &cookies);
+    crate::libnetease::set_cookies(&cookies);
     state.set_session(Some(cookies), Some(account.clone()));
     Ok(account)
 }
@@ -467,6 +385,7 @@ pub async fn auth_status(
     if state.session_epoch() != epoch {
         return Ok(None);
     }
+    crate::libnetease::set_cookies(&cookies);
     state.set_session(Some(cookies), Some(account.clone()));
     Ok(Some(account))
 }
@@ -474,6 +393,7 @@ pub async fn auth_status(
 #[tauri::command]
 pub async fn logout(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     clear_cookies(&app)?;
+    crate::libnetease::clear_cookies();
     if let Ok(mut jars) = state.qr_jars.lock() {
         jars.clear();
     }

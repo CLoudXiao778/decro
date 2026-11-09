@@ -17,7 +17,8 @@
 │ Tauri Rust Core                                              │
 │  state.rs     共享状态：cookie/account/音源缓存/代理 token     │
 │  auth.rs      二维码登录、Cookie 导入、账号资料、DPAPI 落盘    │
-│  netease.rs   首页/歌单/最近/搜索/歌词/喜欢/音源解析           │
+│  libnetease.rs  FFI：weapi/eapi 扫码、音源、红心 + reqwest transport │
+│  netease.rs   首页/歌单/最近/搜索/歌词/喜欢                    │
 │  proxy.rs     127.0.0.1 音频代理：Range、seek、流式转发        │
 │  secure_store.rs  Windows DPAPI 凭证加密                      │
 │  netease/     libnetease FFI（目标，未接入）                   │
@@ -86,10 +87,12 @@ src-tauri/
     main.rs
     lib.rs              # 启动本地代理 + command 注册
     state.rs            # AppState / Account / ProxyInfo
-    auth.rs             # 二维码 type=3、Cookie 导入、账号、DPAPI
-    netease.rs          # 首页/歌单/搜索/歌词/喜欢/音源解析
+    auth.rs             # libnetease 二维码、Cookie 导入、账号、DPAPI
+    libnetease.rs       # C 库 FFI + reqwest transport（weapi/eapi）
+    netease.rs          # 首页/歌单/搜索/歌词；音源/红心委托 libnetease
     proxy.rs            # axum 本地音频代理（127.0.0.1 随机端口）
     secure_store.rs     # Windows DPAPI protect/unprotect
+  vendor/libnetease/    # git submodule: ThripleQ/libnetease
 ```
 
 ### 目标结构
@@ -125,8 +128,7 @@ src-tauri/
 
 | 能力 | 接口 |
 |---|---|
-| 二维码 | `POST interface.music.163.com/api/login/qrcode/unikey`（type=3） |
-| 扫码状态 | `POST interface.music.163.com/api/login/qrcode/client/login` |
+| 二维码/扫码状态 | libnetease `ne_qr_get_key` / `ne_qr_check`（weapi + chainId） |
 | 账号 | `GET music.163.com/api/nuser/account/get` |
 | 首页推荐 | `/api/personalized/playlist`、`/api/personalized/newsong` |
 | 每日推荐 | `/api/v3/discovery/recommend/songs` |
@@ -135,14 +137,15 @@ src-tauri/
 | 歌单详情 | `/api/v6/playlist/detail` |
 | 搜索 | `/api/cloudsearch/pc`（歌曲/歌单） |
 | 歌词 | `/api/song/lyric` |
-| 喜欢 | `/api/song/like` |
-| 音源 | `/api/song/enhance/player/url/v1` |
+| 喜欢 | libnetease `ne_song_like`（weapi，csrf） |
+| 音源 | libnetease `ne_song_url_v1`（weapi，`os=ios`/`appver`） |
 
 实现约定：
 
-- 所有请求在 Rust 侧发出，带固定 UA / Referer / Cookie；前端 CSP 不需要放行网易云域名。
+- 所有请求在 Rust 侧发出；libnetease 负责 weapi/eapi 签名，transport 由 reqwest 执行；前端 CSP 不需要放行网易云域名。
 - 响应统一归一化为 `TrackDto` / `PlaylistDto` 再交给前端，前端不解析原始 JSON。
 - `check_code()` 把 `-462 / 8821 / 8810 / -460` 等平台错误转成可读错误，避免静默卡死。
+- libnetease 的 transport 必须为 POST 补 `application/x-www-form-urlencoded`；否则 weapi 返回 HTTP 200 + 空 body（0.2.x 播放全失败的根因之一）。
 - 音源 URL 缓存 4 分钟，只允许 `.music.126.net` / `.126.net` / `.netease.com` / `.127.net` 域名。
 
 ### 本地音频代理

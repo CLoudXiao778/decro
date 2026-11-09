@@ -10,6 +10,28 @@
 - SMTC、媒体键、系统托盘、迷你播放器与主窗口播放状态同步。
 - 更完整的歌单管理（创建、收藏、排序）与逐字歌词。
 
+## [0.3.0] - 2026-11-09
+
+修复扫码登录与播放，改用 Cirro 原项目的 `libnetease` C 库，而不是手写网易云请求/加密。
+
+### Fixed
+
+- 接入 `ThripleQ/libnetease`（C 子模块）处理二维码获取/轮询、`song/enhance/player/url/v1`、红心；使用其 weapi/eapi 签名与 `os/appver` cookie 策略。
+- 修复 weapi 请求缺少 `Content-Type: application/x-www-form-urlencoded` 导致网易云返回空 body 的问题。
+- 修复非会员/免费歌曲也提示“暂不可播放”的问题；音源 URL 现在由 libnetease 解析，Cookie 会同步到其内存 jar。
+- 扫码登录改用 libnetease 的 weapi QR 流程（含 chainId），避免此前 type=3 接口被风控/空响应卡住。
+- 网页版 Cookie 导入后同时同步给 libnetease；退出登录清空其内存 jar。
+- libnetease 的 cookie jar 只使用 `NUL`/`/dev/null`，不落明文；DPAPI 文件仍是唯一持久化副本。
+
+### Changed
+
+- Windows 构建通过 `cc` 编译 libnetease 静态库，源码以 git submodule 引入；CI checkout 递归拉取子模块。
+- 保留 Rust 直连的首页/歌单/搜索/歌词读取，后续可逐步迁入 libnetease。
+
+### Release
+
+- Windows 10/11 x64 NSIS 安装包 `v0.3.0`，由 GitHub Actions `windows-latest` 构建；未签名。
+
 ## [0.2.1] - 2026-11-08
 
 品牌与仓库完整改名为 **Decro**（Desktop + Cirro），并保留对 Cirro 原项目的明确致敬。

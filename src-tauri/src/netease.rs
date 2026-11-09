@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 use tauri::State;
 
-use crate::state::{is_allowed_audio_host, AppState, API_BASE};
+use crate::state::{AppState, API_BASE};
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -125,31 +125,6 @@ fn check_code(json: &Value) -> Result<(), String> {
         .filter(|message| !message.is_empty())
         .unwrap_or("网易云拒绝了这次请求，请稍后重试");
     Err(format!("网易云：{message}（{code}）"))
-}
-
-async fn post_form(state: &AppState, path: &str, form: &[(&str, String)]) -> Result<Value, String> {
-    let mut request = state
-        .api
-        .post(format!("{API_BASE}{path}"))
-        .form(form)
-        .header(reqwest::header::REFERER, format!("{API_BASE}/"))
-        .header(reqwest::header::ORIGIN, API_BASE);
-    if let Some(cookies) = state.cookie_header() {
-        request = request.header(reqwest::header::COOKIE, cookies);
-    }
-    let response = request
-        .send()
-        .await
-        .map_err(|e| format!("网易云请求失败: {e}"))?;
-    if !response.status().is_success() {
-        return Err(format!("网易云接口返回 HTTP {}", response.status()));
-    }
-    let json: Value = response
-        .json()
-        .await
-        .map_err(|e| format!("网易云响应格式异常: {e}"))?;
-    check_code(&json)?;
-    Ok(json)
 }
 
 fn value_string(value: &Value) -> Option<String> {
@@ -635,68 +610,10 @@ pub async fn like_song(
     if state.account().is_none() {
         return Err("请先登录网易云".to_string());
     }
-    let csrf = state
-        .csrf_token()
-        .ok_or_else(|| "登录状态缺少 csrf，请重新登录".to_string())?;
-
-    let like_value = if like { "true" } else { "false" }.to_string();
-    let first = post_form(
-        &state,
-        "/api/song/like",
-        &[
-            ("trackId", id.clone()),
-            ("like", like_value.clone()),
-            ("csrf_token", csrf.clone()),
-        ],
-    )
-    .await;
-
-    let last_error: String;
-    match first {
-        Ok(value) if value.get("code").and_then(Value::as_i64) == Some(200) => {
-            return Ok(LikeResult { liked: like });
-        }
-        Ok(value) => {
-            last_error = value
-                .get("message")
-                .and_then(Value::as_str)
-                .unwrap_or("喜欢操作失败")
-                .to_string();
-        }
-        Err(error) => last_error = error,
-    }
-
-    // Older/newer web builds expose different like endpoints; try the radio
-    // endpoint as a fallback. Both operate on the same account library.
-    match post_form(
-        &state,
-        "/api/radio/like",
-        &[
-            ("alg", "itembased".to_string()),
-            ("trackId", id),
-            ("like", like_value),
-            ("time", "3".to_string()),
-            ("csrf_token", csrf),
-        ],
-    )
-    .await
-    {
-        Ok(value) if value.get("code").and_then(Value::as_i64) == Some(200) => {
-            Ok(LikeResult { liked: like })
-        }
-        Ok(value) => Err(value
-            .get("message")
-            .and_then(Value::as_str)
-            .filter(|message| !message.is_empty())
-            .unwrap_or(&last_error)
-            .to_string()),
-        Err(error) if last_error.is_empty() => Err(error),
-        Err(_) => Err(if last_error.is_empty() {
-            "喜欢操作失败".to_string()
-        } else {
-            last_error
-        }),
-    }
+    tokio::task::spawn_blocking(move || crate::libnetease::song_like(&id, like))
+        .await
+        .map_err(|e| format!("喜欢操作线程失败: {e}"))??;
+    Ok(LikeResult { liked: like })
 }
 
 #[tauri::command]
@@ -707,8 +624,9 @@ pub fn playback_config(state: State<'_, AppState>) -> PlaybackConfig {
     }
 }
 
-/// Resolve a playable CDN URL. Results are cached briefly because the signed URL
-/// expires, but repeated Range requests for one song should not re-sign each time.
+/// Resolve a playable CDN URL through libnetease's weapi/eapi implementation.
+/// The original Cirro library adds the `os=ios`/`appver` cookie pair that the
+/// player URL endpoint requires; a plain web request gets `url: null`.
 pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, String> {
     if id.is_empty() || !id.chars().all(|ch| ch.is_ascii_digit()) {
         return Err("无效的歌曲 ID".to_string());
@@ -722,69 +640,41 @@ pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, Stri
         }
     }
 
-    let mut last_error = String::new();
-    for level in ["exhigh", "standard"] {
-        let value = match get_json(
-            state,
-            "/api/song/enhance/player/url/v1",
-            &[
-                ("ids", format!("[{id}]")),
-                ("level", level.to_string()),
-                ("encodeType", "mp3".to_string()),
-            ],
-        )
-        .await
-        {
-            Ok(value) => value,
-            Err(error) => {
-                last_error = error;
-                continue;
+    let id_owned = id.to_string();
+    let url = tokio::task::spawn_blocking(move || {
+        let mut last_error = String::new();
+        for level in ["standard", "exhigh"] {
+            match crate::libnetease::song_url(&id_owned, level) {
+                Ok(url) => return Ok(url),
+                Err(error) => last_error = error,
             }
-        };
-
-        let url = value
-            .pointer("/data/0/url")
-            .and_then(Value::as_str)
-            .filter(|url| !url.is_empty());
-        let Some(url) = url else {
-            last_error = value
-                .pointer("/data/0/message")
-                .and_then(Value::as_str)
-                .unwrap_or("该歌曲暂无可用音源（可能需要会员或受版权限制）")
-                .to_string();
-            continue;
-        };
-
-        if value
-            .pointer("/data/0/freeTrialInfo")
-            .is_some_and(|trial| !trial.is_null())
-        {
-            last_error = "该歌曲仅提供试听片段（需要会员）".to_string();
-            continue;
         }
+        Err(if last_error.is_empty() {
+            "该歌曲暂不可播放".to_string()
+        } else {
+            last_error
+        })
+    })
+    .await
+    .map_err(|e| format!("音源解析线程失败: {e}"))??;
 
-        let url = url
-            .strip_prefix("http://")
-            .map(|rest| format!("https://{rest}"))
-            .unwrap_or_else(|| url.to_string());
-        let parsed = reqwest::Url::parse(&url).map_err(|_| "音源地址格式异常".to_string())?;
-        if parsed.scheme() != "https" {
-            return Err("音源地址必须使用 HTTPS".to_string());
-        }
-        let host = parsed.host_str().unwrap_or("");
-        if !is_allowed_audio_host(host) {
-            return Err("音源地址不在允许的网易云域名内".to_string());
-        }
-
-        if let Ok(mut cache) = state.url_cache.lock() {
-            cache.insert(id.to_string(), (url.clone(), Instant::now()));
-        }
-        return Ok(url);
+    let url = url
+        .strip_prefix("http://")
+        .map(|rest| format!("https://{rest}"))
+        .unwrap_or_else(|| url.to_string());
+    let parsed = reqwest::Url::parse(&url).map_err(|_| "音源地址格式异常".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("音源地址必须使用 HTTPS".to_string());
+    }
+    if !parsed
+        .host_str()
+        .is_some_and(crate::state::is_allowed_audio_host)
+    {
+        return Err("音源地址不在允许的网易云域名内".to_string());
     }
 
-    Err(if last_error.is_empty() {
-        "该歌曲暂不可播放".to_string()
-    } else {
-        last_error
-    })
+    if let Ok(mut cache) = state.url_cache.lock() {
+        cache.insert(id.to_string(), (url.clone(), Instant::now()));
+    }
+    Ok(url)
 }

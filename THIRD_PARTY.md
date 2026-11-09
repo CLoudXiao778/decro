@@ -8,10 +8,14 @@
   Licensed under the SIL Open Font License 1.1.
   The license text is at `public/fonts/Inter-OFL.txt`.
 
-## Runtime / future backend
+## Runtime / backend
 
 - **Tauri** — MIT / Apache-2.0.
-- **libnetease** — 暂未接入或随包分发；后续接入前需确认其许可证。
+- **libnetease** — Cirro 原项目的 C 请求内核，以 git submodule 引入：
+  https://github.com/ThripleQ/libnetease 。上游当前没有单独的 LICENSE 文件；
+  Decro 按项目方向复用并保留署名。若再分发，请向原项目作者确认授权。
+- **libnetease 的 weapi/eapi 实现** 基于 `go-musicfox/netease-music` 与
+  `Binaryify/NeteaseCloudMusicApi` 等开源实现，详见其仓库文档。
 - **Rust crates / npm packages** — 各自许可证见 `Cargo.lock` / `package-lock.json`。
 
 ## Design reference / thanks
