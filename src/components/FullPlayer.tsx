@@ -9,6 +9,8 @@ type Rect = { left: number; top: number; width: number; height: number; right: n
 
 const EASE_OPEN = "cubic-bezier(.05,.7,.1,1)";
 const EASE_CLOSE = "cubic-bezier(.2,0,0,1)";
+const MORPH_OPEN_MS = 700;
+const MORPH_CLOSE_MS = 640;
 
 // One path morphs between a straight line and a scrolling sine wave. Both
 // variants use the same Q/T command sequence so Chromium can interpolate `d`
@@ -156,7 +158,8 @@ export function FullPlayer(props: {
   }
 
   function runClone(from: Rect, to: Rect, closing: boolean): Promise<void> {
-    const duration = closing ? 320 : 360;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const duration = reduceMotion ? 0 : closing ? MORPH_CLOSE_MS : MORPH_OPEN_MS;
     const easing = closing ? EASE_CLOSE : EASE_OPEN;
     window.clearTimeout(fallbackTimer);
     cloneAnim?.cancel();
@@ -198,7 +201,6 @@ export function FullPlayer(props: {
     setSourceDock(rects.dock);
     setSourceCover(rects.cover);
     setPreparing(true);
-    setVisible(true);
     setExpanded(false);
     // Keep the real cover hidden until the clone lands. Showing it underneath
     // makes the landing look like a hard cut if the two rects differ by even a
@@ -223,15 +225,21 @@ export function FullPlayer(props: {
             setHeroReady(true);
             hideClone();
           }
-        }, 700);
+        }, 1100);
       } else {
         setHeroReady(true);
       }
     });
 
+    // First paint the panel at the dock clip while the clone is already flying,
+    // then open the clip. This keeps the expensive player paint from delaying
+    // the start of the shared-cover motion.
     requestAnimationFrame(() => {
-      setPreparing(false);
-      setExpanded(true);
+      setVisible(true);
+      requestAnimationFrame(() => {
+        setPreparing(false);
+        setExpanded(true);
+      });
     });
   }
 
@@ -265,7 +273,7 @@ export function FullPlayer(props: {
           setVisible(false);
           setHidden(true);
         }
-      }, 380);
+      }, 760);
     } else {
       hideClone();
       setVisible(false);

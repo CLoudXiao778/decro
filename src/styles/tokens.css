@@ -128,8 +128,8 @@
   --dur-micro: 140ms;
   --dur-standard: 200ms;
   --dur-nav: 220ms;
-  --dur-shell: 420ms;
-  --dur-shell-close: 320ms;
+  --dur-shell: 700ms;
+  --dur-shell-close: 640ms;
   --dur-shared: 360ms;
   --dur-splash-wrap: 190ms;
   --dur-splash-draw: 880ms;

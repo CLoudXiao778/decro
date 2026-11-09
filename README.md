@@ -10,16 +10,19 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.6 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.6/Decro.Desktop_0.4.6_x64-setup.exe)
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.7 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.7/Decro.Desktop_0.4.7_x64-setup.exe)
 - 安装包约 **2.49 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.4.6 修复版**：修复打开播放页时封面硬切归位，并删除封面下方多余的专辑/艺人信息行。
+- 这是 **0.4.7 版本**：播放页封面打开/关闭改为 700/640ms 的共享封面飞行，落位不再硬切；封面下方冗余信息行已删除。
 
 ## 当前状态
 
-- **阶段**：0.4.6 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
+- **阶段**：0.4.7 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.4.7 优化**：
+  - 封面从 dock 放大到播放页、再从播放页归位到 dock 的动画放慢到 700/640ms，克隆在首帧前启动，真实封面落位后再显示。
+  - 删除封面下方「专辑 · 艺人」信息行。
 - **0.4.6 修复**：
   - 打开播放页时真实封面等克隆落位后再显示，且两者矩形一致，不再出现双封面或最后一帧位移。
   - 删除封面下方「专辑 · 艺人」信息行。
