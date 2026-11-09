@@ -25,6 +25,8 @@
 ### Changed
 
 - 版本号 0.3.2；其余功能与 0.3.1 相同。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.3.2`，约 **2.49 MiB**（2,612,546 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`f1b11986743c20a1550804e5df4b742aeedb2eec212e2a1e72a0269e1fe71013`。
 
 ## [0.3.1] - 2026-11-09
 
