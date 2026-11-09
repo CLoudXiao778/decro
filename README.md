@@ -10,16 +10,18 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.4 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.4/Decro.Desktop_0.4.4_x64-setup.exe)
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.5 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.5/Decro.Desktop_0.4.5_x64-setup.exe)
 - 安装包约 **2.49 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.4.4 版本**：歌单支持鼠标滚轮横向翻页，并移除各页面标题右侧的重复账号头像。
+- 这是 **0.4.5 修复版**：进入歌词页时直接定位到当前进度，不再从第一行滚动。
 
 ## 当前状态
 
-- **阶段**：0.4.4 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
+- **阶段**：0.4.5 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.4.5 修复**：
+  - 进入歌词模式时按当前播放进度直接定位到对应行，不再从第一行滚动过去；后续换行仍平滑滚动。
 - **0.4.4 新增 / 优化**：
   - 最近播放、我的歌单、为你推荐等横向歌单支持鼠标滚轮左右翻页；到达两端后恢复页面纵向滚动，不新增按钮或滚动条。
   - 移除主页、分类、资料库、搜索页标题右侧的头像/登录标记，只保留标题栏账号入口。

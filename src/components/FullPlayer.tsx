@@ -279,15 +279,37 @@ export function FullPlayer(props: {
     { defer: true },
   ));
 
-  createEffect(() => {
-    if (!lyricsFocus()) return;
-    const idx = activeIndex();
+  let lyricsReady = false;
+
+  const positionLyrics = (animate: boolean) => {
     if (!lyricsViewport || !lyricsInner) return;
-    const line = lyricsInner.children[idx] as HTMLElement | undefined;
+    const line = lyricsInner.children[activeIndex()] as HTMLElement | undefined;
     if (!line) return;
-    const target = line.offsetTop - lyricsViewport.clientHeight / 2 + line.offsetHeight / 2;
-    lyricsInner.style.transform = `translate3d(0, ${-Math.max(0, target)}px, 0)`;
-  });
+    const target = Math.max(
+      0,
+      line.offsetTop - lyricsViewport.clientHeight / 2 + line.offsetHeight / 2,
+    );
+    if (animate) {
+      lyricsInner.style.transform = `translate3d(0, ${-target}px, 0)`;
+      return;
+    }
+    // Entering lyrics mode must jump straight to the current line. Otherwise
+    // the 450ms transition animates from the first line on every open.
+    lyricsInner.style.transition = "none";
+    lyricsInner.style.transform = `translate3d(0, ${-target}px, 0)`;
+    void lyricsInner.offsetHeight;
+    lyricsInner.style.transition = "";
+  };
+
+
+  createEffect(on(
+    activeIndex,
+    () => {
+      if (!lyricsFocus() || !lyricsReady) return;
+      positionLyrics(true);
+    },
+    { defer: true },
+  ));
 
   const toggleLyrics = () => {
     hideClone();
@@ -441,7 +463,20 @@ export function FullPlayer(props: {
             </div>
 
             <Show when={lyricsFocus()}>
-              <div class="player-lyrics" ref={lyricsViewport}>
+              <div
+                class="player-lyrics"
+                ref={(el) => {
+                  lyricsViewport = el;
+                  // Jump to the current line before the first paint. A
+                  // requestAnimationFrame can be throttled, which made every
+                  // entry visibly scroll down from the first line.
+                  queueMicrotask(() => {
+                    if (!lyricsFocus()) return;
+                    positionLyrics(false);
+                    lyricsReady = true;
+                  });
+                }}
+              >
                 <div class="player-lyrics__inner" ref={lyricsInner}>
                   <For each={props.track.lyrics}>
                     {(line, i) => (
