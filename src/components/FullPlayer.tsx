@@ -200,32 +200,38 @@ export function FullPlayer(props: {
     setPreparing(true);
     setVisible(true);
     setExpanded(false);
-    // Keep the real cover ready underneath the flying clone: a delayed clone
-    // completion (or a throttled animation frame) must never leave a blank cover.
-    setHeroReady(true);
+    // Keep the real cover hidden until the clone lands. Showing it underneath
+    // makes the landing look like a hard cut if the two rects differ by even a
+    // few pixels; the fallback timer below still guarantees a visible cover.
+    setHeroReady(false);
     setLyricsFocus(false);
     setQueueOpen(false);
 
+    // Measure and launch the clone before the expensive player paint. Waiting
+    // for two animation frames let the player body appear first, so the clone
+    // seemed to arrive late and hide on top of an already-visible cover.
+    queueMicrotask(() => {
+      if (!props.open) return;
+      const dest = toRect(cover.getBoundingClientRect());
+      const src = rects.cover ?? rects.dock;
+      if (src && dest) {
+        runClone(src, dest, false).then(() => {
+          if (props.open) setHeroReady(true);
+        });
+        fallbackTimer = window.setTimeout(() => {
+          if (props.open) {
+            setHeroReady(true);
+            hideClone();
+          }
+        }, 700);
+      } else {
+        setHeroReady(true);
+      }
+    });
+
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setPreparing(false);
-        const dest = toRect(cover.getBoundingClientRect());
-        setExpanded(true);
-        const src = rects.cover ?? rects.dock;
-        if (src && dest) {
-          runClone(src, dest, false).then(() => {
-            if (props.open) setHeroReady(true);
-          });
-          fallbackTimer = window.setTimeout(() => {
-            if (props.open) {
-              setHeroReady(true);
-              if (clone) clone.style.visibility = "hidden";
-            }
-          }, 700);
-        } else {
-          setHeroReady(true);
-        }
-      });
+      setPreparing(false);
+      setExpanded(true);
     });
   }
 
@@ -433,12 +439,6 @@ export function FullPlayer(props: {
                 查看歌词
               </span>
             </button>
-            <div class="player-under">
-              <span class="player-under__label">专辑</span>
-              <span>{props.track.album}</span>
-              <span class="player-under__divider" />
-              <span>{props.track.artist}</span>
-            </div>
           </div>
 
           <div class="player-right">
