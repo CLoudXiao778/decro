@@ -31,6 +31,8 @@
 - 新增 `search_kind` 命令，按 cloudsearch 的 type 1/1000/100/10/1006 分别搜索歌曲、歌单、歌手、专辑与歌词。
 - `Track` 增加 `artistId` / `albumId`，用于从播放页跳转。
 - 版本号 0.5.0；其余功能与 0.4.7 相同。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.5.0`，约 **2.51 MiB**（2,628,352 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`e3bef9dc7c07dca544759997e5bfaad87a0c1513b0be72c739dd46ef41c3d6b0`。
 
 ## [0.4.7] - 2026-11-09
 
