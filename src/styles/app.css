@@ -2917,40 +2917,32 @@ kbd {
   top: 50%;
   height: 16px;
   margin-top: -8px;
+  overflow: hidden;
 }
-.wave-progress__wave {
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='16' viewBox='0 0 32 16'%3E%3Cpath d='M0 8 Q 8 1 16 8 T 32 8' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: repeat-x;
-  background-size: 32px 16px;
-  background-position: left center;
-  animation: waveScroll 1.25s linear infinite;
-  opacity: 1;
-  transition: opacity 500ms var(--ease-standard);
-}
-.wave-progress__flat {
+.wave-progress__shape {
   position: absolute;
   left: 0;
-  right: 0;
-  top: 50%;
-  height: 3px;
-  margin-top: -1.5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.82);
-  opacity: 0;
-  transition: opacity 500ms var(--ease-standard);
+  top: 0;
+  width: 1440px;
+  height: 16px;
+  pointer-events: none;
+  will-change: transform;
+  animation: waveScroll 1.25s linear infinite;
 }
-.wave-progress.is-paused .wave-progress__wave {
-  opacity: 0;
+.wave-progress.is-paused .wave-progress__shape {
   animation-play-state: paused;
 }
-.wave-progress.is-paused .wave-progress__flat {
-  opacity: 1;
+.wave-progress__path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: d 500ms var(--ease-standard);
 }
 @keyframes waveScroll {
-  from { background-position: 0 center; }
-  to { background-position: 32px center; }
+  from { transform: translateX(0); }
+  to { transform: translateX(-32px); }
 }
 .wave-progress__thumb {
   position: absolute;
@@ -3261,7 +3253,7 @@ kbd {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-[data-perf="low"] .wave-progress__wave {
+[data-perf="low"] .wave-progress__shape {
   animation-duration: 2.4s;
 }
 [data-perf="low"] .ambient__blob {
@@ -3269,8 +3261,10 @@ kbd {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wave-progress__wave,
-  .wave-progress__flat {
+  .wave-progress__shape {
+    animation: none;
+  }
+  .wave-progress__path {
     transition: none;
   }
 }

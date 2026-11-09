@@ -10,6 +10,19 @@ type Rect = { left: number; top: number; width: number; height: number; right: n
 const EASE_OPEN = "cubic-bezier(.05,.7,.1,1)";
 const EASE_CLOSE = "cubic-bezier(.2,0,0,1)";
 
+// One path morphs between a straight line and a scrolling sine wave. Both
+// variants use the same Q/T command sequence so Chromium can interpolate `d`
+// instead of cross-fading two separate elements.
+const WAVE_WIDTH = 1440;
+function progressPath(wave: boolean): string {
+  const controlY = wave ? 1 : 8;
+  let d = `M0 8 Q8 ${controlY} 16 8`;
+  for (let x = 32; x <= WAVE_WIDTH; x += 16) d += ` T${x} 8`;
+  return d;
+}
+const WAVE_PATH = progressPath(true);
+const FLAT_PATH = progressPath(false);
+
 function WaveProgress(props: {
   value: number;
   duration: number;
@@ -56,8 +69,17 @@ function WaveProgress(props: {
     >
       <span class="wave-progress__line" style={{ left: `${fraction() * 100}%` }} />
       <span class="wave-progress__played" style={{ width: `${fraction() * 100}%` }}>
-        <span class="wave-progress__wave" />
-        <span class="wave-progress__flat" />
+        <svg
+          class="wave-progress__shape"
+          viewBox={`0 0 ${WAVE_WIDTH} 16`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            class="wave-progress__path"
+            d={props.playing ? WAVE_PATH : FLAT_PATH}
+          />
+        </svg>
       </span>
       <span class="wave-progress__thumb" style={{ left: `${fraction() * 100}%` }} />
     </div>
