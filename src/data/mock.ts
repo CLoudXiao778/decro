@@ -9,6 +9,7 @@ export type Track = {
   title: string;
   artist: string;
   artistId?: string;
+  artists?: { id: string; name: string }[];
   album: string;
   albumId?: string;
   duration: string;
@@ -71,6 +72,7 @@ export const tracks: Track[] = [
     title: "夜航",
     artist: "Lumen",
     artistId: "33927412",
+    artists: [{ id: "33927412", name: "Lumen" }],
     album: "Neon Tides",
     albumId: "84072830",
     duration: "4:38",

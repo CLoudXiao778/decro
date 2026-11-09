@@ -588,7 +588,7 @@ dependencies = [
 
 [[package]]
 name = "decro-desktop"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "axum",
  "cc",

@@ -15,6 +15,7 @@ type TrackDto = {
   name: string;
   artist: string;
   artistId: string;
+  artists: { id: string; name: string }[];
   album: string;
   albumId: string;
   durationMs: number;
@@ -174,6 +175,7 @@ export function toTrack(dto: TrackDto): Track {
     title: dto.name || "未知歌曲",
     artist: dto.artist || "未知艺人",
     artistId: dto.artistId || undefined,
+    artists: dto.artists ?? [],
     album: dto.album || "未知专辑",
     albumId: dto.albumId || undefined,
     duration: formatTime(seconds),

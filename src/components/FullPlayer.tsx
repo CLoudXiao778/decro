@@ -395,10 +395,24 @@ export function FullPlayer(props: {
     setMenuOpen(false);
   };
 
+  const artistRefs = () => {
+    const list = (props.track.artists ?? []).filter((artist) => artist.id && artist.name);
+    if (list.length > 0) return list;
+    return props.track.artistId
+      ? [{ id: props.track.artistId, name: props.track.artist }]
+      : [];
+  };
+
   const openArtistPage = () => {
     setMenuOpen(false);
-    if (props.track.artistId) props.onOpenArtist(props.track.artistId);
+    const first = artistRefs()[0];
+    if (first) props.onOpenArtist(first.id);
     else props.onToast("这首歌曲没有歌手信息");
+  };
+
+  const openArtistRef = (id: string) => {
+    setMenuOpen(false);
+    props.onOpenArtist(id);
   };
 
   const openAlbumPage = () => {
@@ -570,7 +584,6 @@ export function FullPlayer(props: {
                 url={props.track.coverUrl}
                 showLabel={false}
               />
-              <span class="player-cover__glass" />
               <span class="player-cover__shade" />
               <span class="player-cover__caption">
                 <span>{props.track.album}</span>
@@ -612,10 +625,29 @@ export function FullPlayer(props: {
                   </button>
                   <Show when={menuOpen()}>
                     <div class="player-menu" role="menu">
-                      <button role="menuitem" onClick={openArtistPage} disabled={!props.track.artistId}>
-                        <Icon name="user" size={16} />
-                        查看歌手
-                      </button>
+                      <Show
+                        when={artistRefs().length > 1}
+                        fallback={
+                          <button role="menuitem" onClick={openArtistPage} disabled={!artistRefs().length}>
+                            <Icon name="user" size={16} />
+                            查看歌手
+                          </button>
+                        }
+                      >
+                        <div class="player-menu__label">查看歌手</div>
+                        <For each={artistRefs()}>
+                          {(artist) => (
+                            <button
+                              role="menuitem"
+                              class="player-menu__artist"
+                              onClick={() => openArtistRef(artist.id)}
+                            >
+                              <Icon name="user" size={15} />
+                              {artist.name}
+                            </button>
+                          )}
+                        </For>
+                      </Show>
                       <button role="menuitem" onClick={openAlbumPage} disabled={!props.track.albumId}>
                         <Icon name="disc" size={16} />
                         查看专辑
@@ -680,15 +712,24 @@ export function FullPlayer(props: {
                   </Show>
                   <span> · </span>
                   <Show
-                    when={props.track.artistId}
+                    when={artistRefs().length > 0}
                     fallback={<span>{props.track.artist}</span>}
                   >
-                    <button
-                      class="player-cover-copy__link"
-                      onClick={() => props.onOpenArtist(props.track.artistId!)}
-                    >
-                      {props.track.artist}
-                    </button>
+                    <For each={artistRefs()}>
+                      {(artist, index) => (
+                        <>
+                          <Show when={index() > 0}>
+                            <span> / </span>
+                          </Show>
+                          <button
+                            class="player-cover-copy__link"
+                            onClick={() => props.onOpenArtist(artist.id)}
+                          >
+                            {artist.name}
+                          </button>
+                        </>
+                      )}
+                    </For>
                   </Show>
                 </p>
                 <div class="player-cover-copy__meta">

@@ -2662,19 +2662,7 @@ kbd {
   width: 100%;
   height: 100%;
 }
-.player-cover__glass {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background:
-    linear-gradient(112deg, transparent 0 16%, rgba(255, 255, 255, 0.16) 18% 20%, transparent 22% 42%, rgba(255, 255, 255, 0.1) 44% 46%, transparent 48% 67%, rgba(255, 255, 255, 0.13) 69% 71%, transparent 73%),
-    linear-gradient(104deg, transparent 0 56%, rgba(255, 255, 255, 0.08) 58% 63%, transparent 65%),
-    radial-gradient(120% 80% at 15% 0%, rgba(255, 255, 255, 0.16), transparent 52%);
-  mix-blend-mode: screen;
-  opacity: 0.62;
-  filter: blur(0.5px);
-}
+
 .player-cover__shade {
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.1), transparent 30%, transparent 72%, rgba(0, 0, 0, 0.24)),
@@ -3162,9 +3150,6 @@ kbd {
   mix-blend-mode: normal;
   opacity: 0.028;
 }
-.player-cover__glass {
-  opacity: 0.5;
-}
 .player-head-button,
 .player-skip,
 .player-cover__hint,
@@ -3204,9 +3189,6 @@ kbd {
 [data-perf="low"] .cover-art__grain,
 [data-perf="low"] .splash__glow {
   display: none;
-}
-[data-perf="low"] .player-cover__glass {
-  opacity: 0.28;
 }
 [data-perf="low"] .player-queue,
 [data-perf="low"] .command,
@@ -3729,4 +3711,15 @@ kbd {
 .player-layer:focus,
 .player-layer:focus-visible {
   outline: none;
+}
+
+.player-menu__label {
+  padding: 7px 10px 3px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.player-menu button.player-menu__artist {
+  padding-left: 14px;
 }

@@ -13,6 +13,7 @@ pub struct TrackDto {
     pub name: String,
     pub artist: String,
     pub artist_id: String,
+    pub artists: Vec<ArtistRef>,
     pub album: String,
     pub album_id: String,
     pub duration_ms: u64,
@@ -344,10 +345,11 @@ pub fn normalize_song(value: &Value) -> Option<TrackDto> {
         .unwrap_or("未知歌曲")
         .to_string();
 
-    let artists = value
+    let artist_list = value
         .get("ar")
         .or_else(|| value.get("artists"))
-        .and_then(Value::as_array)
+        .and_then(Value::as_array);
+    let artists = artist_list
         .map(|list| {
             list.iter()
                 .filter_map(|artist| artist.get("name").and_then(Value::as_str))
@@ -356,6 +358,20 @@ pub fn normalize_song(value: &Value) -> Option<TrackDto> {
         })
         .filter(|text| !text.is_empty())
         .unwrap_or_else(|| "未知艺人".to_string());
+    let artist_refs = artist_list
+        .map(|list| {
+            list.iter()
+                .filter_map(|artist| {
+                    let id = artist.get("id").and_then(value_string)?;
+                    let name = artist.get("name").and_then(Value::as_str)?;
+                    Some(ArtistRef {
+                        id,
+                        name: name.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
 
     let album_value = value.get("al").or_else(|| value.get("album"));
     let album = album_value
@@ -402,6 +418,7 @@ pub fn normalize_song(value: &Value) -> Option<TrackDto> {
         name,
         artist: artists,
         artist_id,
+        artists: artist_refs,
         album,
         album_id,
         duration_ms,

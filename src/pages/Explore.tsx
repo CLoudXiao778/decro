@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import type { Playlist, Track } from "../data/mock";
 import { CoverArt } from "../components/CoverArt";
 import { Icon } from "../components/Icon";
@@ -30,6 +30,7 @@ export function Explore(props: {
       : props.featured?.subtitle ?? "";
   const featuredKicker = () =>
     props.featured?.kind === "daily" ? "今日更新" : "编辑精选";
+  const [recommendedExpanded, setRecommendedExpanded] = createSignal(false);
 
   return (
     <div class="page page--explore">
@@ -172,12 +173,18 @@ export function Explore(props: {
       <section class="source-section">
         <div class="source-section__head">
           <h2>为你推荐</h2>
-          <button class="source-section__more" onClick={() => props.recommended[0] && props.onOpenPlaylist(props.recommended[0])}>
-            查看更多 <Icon name="chevron-right" size={14} />
-          </button>
+          <Show when={props.recommended.length > 8}>
+            <button
+              class="source-section__more"
+              onClick={() => setRecommendedExpanded((value) => !value)}
+            >
+              {recommendedExpanded() ? "收起" : "更多"}
+              <Icon name={recommendedExpanded() ? "chevron-down" : "chevron-right"} size={14} />
+            </button>
+          </Show>
         </div>
-        <Shelf class="shelf--playlist">
-          <For each={props.recommended.slice(0, 8)}>
+        <Shelf class={`shelf--playlist ${recommendedExpanded() ? "shelf--wrap" : ""}`}>
+          <For each={recommendedExpanded() ? props.recommended : props.recommended.slice(0, 8)}>
             {(playlist, index) => (
               <button
                 class="shelf-tile"
