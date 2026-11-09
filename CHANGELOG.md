@@ -20,6 +20,8 @@
 - 低性能模式保留 `blur(7px)`，但不再使用 `scale(10)`，避免同样的合成层残留。
 - `morph-cover` 克隆层在隐藏时改为 `display:none`，并在切换歌词/打开歌词时主动清理；不再只设置 `visibility:hidden`，避免 WebView2 留下可复用的旧图层。
 - 版本号 0.4.3；播放/登录/媒体控制逻辑不变。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.4.3`，约 **2.49 MiB**（2,612,372 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`3090bc0d6f8e043cb4c200c77730a72dfe00308060c55d5c5127066a88560079`。
 
 ## [0.4.2] - 2026-11-09
 
