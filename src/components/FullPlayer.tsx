@@ -160,6 +160,7 @@ export function FullPlayer(props: {
     const easing = closing ? EASE_CLOSE : EASE_OPEN;
     window.clearTimeout(fallbackTimer);
     cloneAnim?.cancel();
+    clone.style.display = "block";
     clone.style.visibility = "visible";
     clone.style.left = `${to.left}px`;
     clone.style.top = `${to.top}px`;
@@ -229,7 +230,11 @@ export function FullPlayer(props: {
   }
 
   function hideClone() {
-    if (clone) clone.style.visibility = "hidden";
+    if (!clone) return;
+    clone.style.visibility = "hidden";
+    // Remove the compositor layer entirely. A hidden-but-composited cover can
+    // survive a WebView2 repaint as a stale patch after lyrics mode toggles.
+    clone.style.display = "none";
   }
 
   function closePlayer() {
@@ -283,6 +288,16 @@ export function FullPlayer(props: {
     const target = line.offsetTop - lyricsViewport.clientHeight / 2 + line.offsetHeight / 2;
     lyricsInner.style.transform = `translate3d(0, ${-Math.max(0, target)}px, 0)`;
   });
+
+  const toggleLyrics = () => {
+    hideClone();
+    setLyricsFocus((value) => !value);
+  };
+
+  const openLyrics = () => {
+    hideClone();
+    setLyricsFocus(true);
+  };
 
   const onKey = (event: KeyboardEvent) => {
     if (!props.open) return;
@@ -374,7 +389,7 @@ export function FullPlayer(props: {
               ref={cover}
               class="player-cover"
               classList={{ "is-hero-ready": heroReady() }}
-              onClick={() => setLyricsFocus((value) => !value)}
+              onClick={toggleLyrics}
               aria-label="切换歌词"
               title="切换歌词"
             >
@@ -452,7 +467,7 @@ export function FullPlayer(props: {
                   <span>·</span>
                   <span>网易云音乐</span>
                 </div>
-                <button class="player-cover-copy__lyrics" onClick={() => setLyricsFocus(true)}>
+                <button class="player-cover-copy__lyrics" onClick={openLyrics}>
                   <Icon name="lyrics" size={16} />
                   打开歌词
                 </button>
@@ -479,7 +494,7 @@ export function FullPlayer(props: {
                 classList={{ "is-active": lyricsFocus() }}
                 aria-label="歌词"
                 title="歌词"
-                onClick={() => setLyricsFocus((value) => !value)}
+                onClick={toggleLyrics}
               >
                 <Icon name="lyrics" size={19} />
               </button>
@@ -542,7 +557,12 @@ export function FullPlayer(props: {
         </aside>
       </div>
 
-      <div ref={clone} class="morph-cover" aria-hidden="true" style={{ visibility: "hidden" }}>
+      <div
+        ref={clone}
+        class="morph-cover"
+        aria-hidden="true"
+        style={{ visibility: "hidden", display: "none" }}
+      >
         <CoverArt palette={props.track.palette} seed={props.track.coverSeed ?? 0} url={props.track.coverUrl} showLabel={false} />
       </div>
     </>
