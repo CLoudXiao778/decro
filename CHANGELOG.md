@@ -25,6 +25,8 @@
 ### Fixed
 
 - 打开/关闭播放页时封面最后一帧的硬切位移。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.4.7`，约 **2.49 MiB**（2,611,872 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`38c001af65f63e7103891509f21188ae963cfecbcc39c7f6b7f19ab5488f919d`。
 
 ## [0.4.6] - 2026-11-09
 
