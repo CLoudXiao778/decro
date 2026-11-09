@@ -122,6 +122,8 @@ export function FullPlayer(props: {
   const [sourceCover, setSourceCover] = createSignal<Rect | null>(null);
 
   let cover!: HTMLButtonElement;
+  let playerLayer!: HTMLDivElement;
+  let lastFocused: HTMLElement | null = null;
   let clone!: HTMLDivElement;
   let lyricsViewport!: HTMLDivElement;
   let lyricsInner!: HTMLDivElement;
@@ -201,6 +203,8 @@ export function FullPlayer(props: {
 
   function openPlayer() {
     window.clearTimeout(closeTimer);
+    lastFocused = document.activeElement as HTMLElement | null;
+    setMenuOpen(false);
     setHidden(false);
     const rects = readRects();
     setSourceDock(rects.dock);
@@ -240,8 +244,21 @@ export function FullPlayer(props: {
     // then open the clip. This keeps the expensive player paint from delaying
     // the start of the shared-cover motion.
     requestAnimationFrame(() => {
+      if (!props.open) {
+        setVisible(false);
+        setPreparing(false);
+        setHidden(true);
+        return;
+      }
       setVisible(true);
+      playerLayer?.focus({ preventScroll: true });
       requestAnimationFrame(() => {
+        if (!props.open) {
+          setVisible(false);
+          setPreparing(false);
+          setHidden(true);
+          return;
+        }
         setPreparing(false);
         setExpanded(true);
       });
@@ -256,7 +273,17 @@ export function FullPlayer(props: {
     clone.style.display = "none";
   }
 
+  function restoreFocus() {
+    const target =
+      lastFocused && document.contains(lastFocused)
+        ? lastFocused
+        : (document.getElementById("player-dock") as HTMLElement | null);
+    lastFocused = null;
+    target?.focus?.({ preventScroll: true });
+  }
+
   function closePlayer() {
+    setMenuOpen(false);
     if (!visible()) return;
     // Reverse of open: fly the real player cover back to the dock, not the
     // other way around. The old direction could leave a full-size clone on
@@ -270,6 +297,7 @@ export function FullPlayer(props: {
         if (!props.open) {
           setVisible(false);
           setHidden(true);
+          restoreFocus();
         }
       });
       closeTimer = window.setTimeout(() => {
@@ -277,12 +305,14 @@ export function FullPlayer(props: {
         if (!props.open) {
           setVisible(false);
           setHidden(true);
+          restoreFocus();
         }
       }, 760);
     } else {
       hideClone();
       setVisible(false);
       setHidden(true);
+      restoreFocus();
     }
     setPreparing(false);
     setExpanded(false);
@@ -330,6 +360,20 @@ export function FullPlayer(props: {
     { defer: true },
   ));
 
+  createEffect(on(
+    () => `${props.track.id}:${props.track.lyrics.length}`,
+    () => {
+      if (!lyricsFocus()) return;
+      lyricsReady = false;
+      queueMicrotask(() => {
+        if (!lyricsFocus()) return;
+        positionLyrics(false);
+        lyricsReady = true;
+      });
+    },
+    { defer: true },
+  ));
+
   const toggleLyrics = () => {
     hideClone();
     setMenuOpen(false);
@@ -364,6 +408,7 @@ export function FullPlayer(props: {
   };
 
   const openComments = () => {
+    setMenuOpen(false);
     void openSongPage(props.track.id).catch((error) =>
       props.onToast(typeof error === "string" ? error : "打开网易云页面失败"),
     );
@@ -373,10 +418,49 @@ export function FullPlayer(props: {
     if (!props.open) return;
     if (document.querySelector(".command-layer")) return;
     if (event.key === "Escape") {
+      if (menuOpen()) {
+        event.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
       event.preventDefault();
       props.onClose();
+      return;
     }
-    if (event.key === " " && !(event.target instanceof HTMLInputElement)) {
+    if (event.key === "Tab" && playerLayer) {
+      const items = Array.from(
+        playerLayer.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter(
+        (element) =>
+          element.offsetParent !== null &&
+          !element.closest("[inert]") &&
+          !element.closest("[aria-hidden='true']"),
+      );
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || !playerLayer.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (active === playerLayer) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    const target = event.target as HTMLElement | null;
+    const interactive = target?.closest(
+      "button, a, input, textarea, select, [role='slider'], [contenteditable='true']",
+    );
+    if (event.key === " " && !interactive) {
       event.preventDefault();
       props.onTogglePlay();
     }
@@ -415,6 +499,8 @@ export function FullPlayer(props: {
         aria-hidden="true"
       />
       <div
+        ref={playerLayer}
+        tabindex={-1}
         class="player-layer"
         classList={{
           "is-visible": visible(),
@@ -671,7 +757,13 @@ export function FullPlayer(props: {
         </div>
 
         <div class="player-queue-scrim" classList={{ "is-open": queueOpen() }} onClick={() => setQueueOpen(false)} />
-        <aside class="player-queue" classList={{ "is-open": queueOpen() }} aria-label="播放队列">
+        <aside
+          class="player-queue"
+          classList={{ "is-open": queueOpen() }}
+          aria-label="播放队列"
+          aria-hidden={!queueOpen()}
+          inert={!queueOpen()}
+        >
           <div class="player-queue__head">
             <div>
               <span>播放队列</span>

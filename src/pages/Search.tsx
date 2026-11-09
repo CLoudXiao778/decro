@@ -34,6 +34,8 @@ let cachedQuery = "";
 let cachedKind: SearchKind = "song";
 let cachedSource: "cloud" | "library" = "cloud";
 let cachedFocused = false;
+let cachedKey = "";
+let cachedResults = emptyResults();
 
 function yearOf(time: number): string {
   if (!time) return "";
@@ -55,7 +57,7 @@ export function SearchPage(props: {
   const [source, setSource] = createSignal<"cloud" | "library">(cachedSource);
   const [kind, setKind] = createSignal<SearchKind>(cachedKind);
   const [kindOpen, setKindOpen] = createSignal(false);
-  const [results, setResults] = createSignal<SearchBundle>(emptyResults());
+  const [results, setResults] = createSignal<SearchBundle>(cachedResults);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   let input!: HTMLInputElement;
@@ -84,12 +86,21 @@ export function SearchPage(props: {
       setError(null);
       return;
     }
+    const key = `${selected}:${keyword}`;
+    if (cachedKey === key) {
+      setResults(cachedResults);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     timer = window.setTimeout(async () => {
       try {
         const data = await searchByKind(keyword, selected);
         if (request !== requestId) return;
+        cachedKey = key;
+        cachedResults = data;
         setResults(data);
       } catch (reason) {
         if (request !== requestId) return;
@@ -154,6 +165,8 @@ export function SearchPage(props: {
   });
 
   const clear = () => {
+    cachedKey = "";
+    cachedResults = emptyResults();
     setQuery("");
     setFocused(false);
     setKindOpen(false);

@@ -3725,3 +3725,8 @@ kbd {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.player-layer:focus,
+.player-layer:focus-visible {
+  outline: none;
+}

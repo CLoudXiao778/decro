@@ -97,6 +97,7 @@ type ArtistPageDto = {
   artist: ArtistDto;
   songs: TrackDto[];
   albums: AlbumDto[];
+  albumError?: string;
 };
 
 type AlbumPageDto = {
@@ -113,6 +114,7 @@ export type ArtistPageData = {
   artist: ArtistInfo;
   songs: Track[];
   albums: AlbumInfo[];
+  albumError?: string;
 };
 export type AlbumPageData = {
   album: AlbumInfo;
@@ -315,6 +317,7 @@ export async function getArtistPage(id: string): Promise<ArtistPageData> {
     artist: data.artist,
     songs: data.songs.map(toTrack),
     albums: data.albums,
+    albumError: data.albumError,
   };
 }
 

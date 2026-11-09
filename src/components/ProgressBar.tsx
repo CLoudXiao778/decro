@@ -96,8 +96,16 @@ export function VolumeBar(props: { value: number; onInput: (value: number) => vo
         if (event.buttons & 1) seek(event);
       }}
       onKeyDown={(event) => {
-        if (event.key === "ArrowRight") props.onInput(Math.min(1, props.value + 0.05));
-        if (event.key === "ArrowLeft") props.onInput(Math.max(0, props.value - 0.05));
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onInput(Math.min(1, props.value + 0.05));
+        }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onInput(Math.max(0, props.value - 0.05));
+        }
       }}
     >
       <div class="volume-bar__track">

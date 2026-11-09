@@ -4045,3 +4045,81 @@ button.settings-source-row:hover {
     height: 54px;
   }
 }
+
+/* Entity pages in the light theme: the backdrop fades to --bg below the hero,
+   so the hard-coded white text above needs a dark counterpart. */
+[data-theme="light"] .entity-hero__meta,
+[data-theme="light"] .entity-hero h1,
+[data-theme="light"] .entity-section__head h2,
+[data-theme="light"] .entity-album,
+[data-theme="light"] .entity-track {
+  color: #15171b;
+}
+[data-theme="light"] .entity-kicker,
+[data-theme="light"] .entity-stats,
+[data-theme="light"] .entity-sub,
+[data-theme="light"] .entity-album-artists,
+[data-theme="light"] .entity-section__head span,
+[data-theme="light"] .entity-track__index,
+[data-theme="light"] .entity-track__time,
+[data-theme="light"] .entity-album small {
+  color: rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] .entity-bio {
+  color: rgba(0, 0, 0, 0.58);
+}
+[data-theme="light"] .entity-track {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.58);
+}
+[data-theme="light"] .entity-track:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+[data-theme="light"] .entity-track.is-active {
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, rgba(255, 255, 255, 0.62));
+}
+[data-theme="light"] .entity-track__main small,
+[data-theme="light"] .entity-track__album {
+  color: rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] .entity-track__play {
+  background: rgba(0, 0, 0, 0.06);
+  color: #15171b;
+}
+[data-theme="light"] .entity-avatar,
+[data-theme="light"] .entity-album-cover,
+[data-theme="light"] .entity-album__cover {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .entity-play {
+  background: #17181b;
+  color: #fff;
+}
+[data-theme="light"] .entity-link:hover {
+  color: #000;
+}
+.entity-inline-error {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+  color: var(--on-surface-2);
+  font-size: 12px;
+}
+[data-theme="light"] .entity-inline-error {
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.entity-empty {
+  padding: 28px 16px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 16px;
+  color: var(--on-surface-3);
+  font-size: 13px;
+  text-align: center;
+}
+.entity-play:disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}

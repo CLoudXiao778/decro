@@ -74,6 +74,7 @@ export default function App() {
   const [page, setPage] = createSignal<Page>("explore");
   const [detail, setDetail] = createSignal<Playlist | null>(null);
   const [detailOrigin, setDetailOrigin] = createSignal<DOMRect | null>(null);
+  const [detailOnTop, setDetailOnTop] = createSignal(false);
   const [entityStack, setEntityStack] = createSignal<EntityEntry[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [current, setCurrent] = createSignal<Track>(mockTracks[0]);
@@ -114,12 +115,16 @@ export default function App() {
   let audioFailed = false;
   let playRequest = 0;
   let entityKey = 0;
+  const entityScrollStack: number[] = [];
+  let detailScrollTop: number | null = null;
   let likedLoaded = false;
   const pendingLikes = new Set<string>();
 
   const isLiked = (track: Track) => likedIds().has(track.id);
   const entity = createMemo(() => entityStack().at(-1) ?? null);
-  const canGoBack = createMemo(() => detail() !== null || entityStack().length > 0);
+  const canGoBack = createMemo(
+    () => detail() !== null || entityStack().length > 0 || detailOnTop(),
+  );
 
   const showToast = (message: string) => {
     setToast(message);
@@ -207,14 +212,36 @@ export default function App() {
     }
   };
 
+  const restoreScroll = (top: number) => {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        mainScroll?.scrollTo({ top, behavior: "instant" as ScrollBehavior }),
+      ),
+    );
+  };
+
   const back = () => {
+    if (detailOnTop() && detail()) {
+      setDetail(null);
+      setDetailOrigin(null);
+      setDetailOnTop(false);
+      if (detailScrollTop !== null) {
+        const top = detailScrollTop;
+        detailScrollTop = null;
+        restoreScroll(top);
+      }
+      return;
+    }
     if (entityStack().length > 0) {
       setEntityStack((stack) => stack.slice(0, -1));
+      const scrollTop = entityScrollStack.pop();
+      if (scrollTop !== undefined) restoreScroll(scrollTop);
       return;
     }
     if (detail()) {
       setDetail(null);
       setDetailOrigin(null);
+      setDetailOnTop(false);
     } else {
       navigate("explore");
     }
@@ -225,8 +252,8 @@ export default function App() {
     const current = entity();
     if (current?.kind === "artist" && current.id === id && !current.error) return;
     setPlayerOpen(false);
-    setDetail(null);
-    setDetailOrigin(null);
+    setDetailOnTop(false);
+    entityScrollStack.push(mainScroll?.scrollTop ?? 0);
     requestAnimationFrame(() =>
       mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }),
     );
@@ -265,8 +292,8 @@ export default function App() {
     const current = entity();
     if (current?.kind === "album" && current.id === id && !current.error) return;
     setPlayerOpen(false);
-    setDetail(null);
-    setDetailOrigin(null);
+    setDetailOnTop(false);
+    entityScrollStack.push(mainScroll?.scrollTop ?? 0);
     requestAnimationFrame(() =>
       mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }),
     );
@@ -308,7 +335,10 @@ export default function App() {
   const navigate = (next: Page) => {
     setDetail(null);
     setDetailOrigin(null);
+    setDetailOnTop(false);
     setEntityStack([]);
+    entityScrollStack.length = 0;
+    detailScrollTop = null;
     setPage(next);
     setPaletteOpen(false);
     requestAnimationFrame(() => mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }));
@@ -333,7 +363,9 @@ export default function App() {
   };
 
   const openPlaylist = (playlist: Playlist, origin?: HTMLElement) => {
+    if (!detail()) detailScrollTop = mainScroll?.scrollTop ?? 0;
     setDetailOrigin(origin?.getBoundingClientRect() ?? null);
+    setDetailOnTop(true);
     setDetail(playlist);
     setPaletteOpen(false);
     requestAnimationFrame(() => mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }));
@@ -622,7 +654,10 @@ export default function App() {
     setLibrary(null);
     setDetail(null);
     setDetailOrigin(null);
+    setDetailOnTop(false);
     setEntityStack([]);
+    entityScrollStack.length = 0;
+    detailScrollTop = null;
     setLikedIds(new Set<string>());
     likedLoaded = false;
     setPlaying(false);
@@ -1000,12 +1035,8 @@ export default function App() {
 
         <main class="main">
           <div class="main__scroll" ref={mainScroll}>
-            <Show
-              when={detail()}
+            <Switch
               fallback={
-                <Show
-                  when={entity()}
-                  fallback={
                 <Switch>
                   <Match when={page() === "explore"}>
                     <Explore
@@ -1084,27 +1115,13 @@ export default function App() {
                     />
                   </Match>
                 </Switch>
-                  }
-                >
-                  {(entry) => (
-                    <EntityPage
-                      entry={entry()}
-                      current={current()}
-                      playing={playing()}
-                      onBack={back}
-                      onPlayTrack={playTrack}
-                      onPlayAll={playAll}
-                      onOpenArtist={openArtist}
-                      onOpenAlbum={openAlbum}
-                    />
-                  )}
-                </Show>
               }
             >
-              {(playlist) => (
-                <DetailPage
-                  playlist={playlist()}
-                  origin={detailOrigin()}
+              <Match when={detailOnTop() && detail()}>
+                {(playlist) => (
+                  <DetailPage
+                    playlist={playlist()}
+                                      origin={detailOrigin()}
                   onOriginConsumed={() => setDetailOrigin(null)}
                   current={current()}
                   playing={playing()}
@@ -1115,9 +1132,42 @@ export default function App() {
                   onToggleLike={(track) => void toggleLike(track)}
                   onBack={back}
                   onOpenPlaylist={openPlaylist}
-                />
-              )}
-            </Show>
+                  />
+                )}
+              </Match>
+              <Match when={entity()}>
+                {(entry) => (
+                  <EntityPage
+                    entry={entry()}
+                    current={current()}
+                    playing={playing()}
+                    onBack={back}
+                    onPlayTrack={playTrack}
+                    onPlayAll={playAll}
+                    onOpenArtist={openArtist}
+                    onOpenAlbum={openAlbum}
+                  />
+                )}
+              </Match>
+              <Match when={detail()}>
+                {(playlist) => (
+                  <DetailPage
+                    playlist={playlist()}
+                                      origin={detailOrigin()}
+                  onOriginConsumed={() => setDetailOrigin(null)}
+                  current={current()}
+                  playing={playing()}
+                  liked={isLiked}
+                  loading={detailLoading()}
+                  onPlayPlaylist={playPlaylist}
+                  onPlayTrack={playTrack}
+                  onToggleLike={(track) => void toggleLike(track)}
+                  onBack={back}
+                  onOpenPlaylist={openPlaylist}
+                  />
+                )}
+              </Match>
+            </Switch>
           </div>
         </main>
 

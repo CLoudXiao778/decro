@@ -85,6 +85,9 @@ function EntityTrackList(props: {
   onPlayTrack: (track: Track, context?: Track[]) => void;
   showAlbum?: boolean;
 }) {
+  if (props.songs.length === 0) {
+    return <div class="entity-empty">暂无歌曲</div>;
+  }
   return (
     <div class="entity-tracks">
       <For each={props.songs}>
@@ -177,6 +180,7 @@ function ArtistPage(props: EntityProps & { entry: ArtistEntry }) {
           <div class="entity-actions">
             <button
               class="entity-play"
+              disabled={!data()?.songs.length}
               onClick={() => {
                 const songs = data()?.songs ?? [];
                 if (songs[0]) props.onPlayAll(songs);
@@ -206,13 +210,18 @@ function ArtistPage(props: EntityProps & { entry: ArtistEntry }) {
         />
       </section>
 
-      <Show when={data()?.albums.length}>
+      <Show when={data()?.albums.length || data()?.albumError}>
         <section class="entity-section">
           <div class="entity-section__head">
             <h2>专辑</h2>
             <span>{data()?.albums.length ?? 0} 张</span>
           </div>
-          <EntityAlbums albums={data()?.albums ?? []} onOpenAlbum={props.onOpenAlbum} />
+          <Show
+            when={!data()?.albumError}
+            fallback={<div class="entity-inline-error">专辑列表加载失败：{data()?.albumError}</div>}
+          >
+            <EntityAlbums albums={data()?.albums ?? []} onOpenAlbum={props.onOpenAlbum} />
+          </Show>
         </section>
       </Show>
     </EntityShell>
@@ -257,6 +266,7 @@ function AlbumPage(props: EntityProps & { entry: AlbumEntry }) {
           <div class="entity-actions">
             <button
               class="entity-play"
+              disabled={!data()?.songs.length}
               onClick={() => {
                 const songs = data()?.songs ?? [];
                 if (songs[0]) props.onPlayAll(songs);

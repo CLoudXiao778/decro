@@ -131,6 +131,8 @@ pub struct ArtistPageData {
     pub artist: ArtistInfo,
     pub songs: Vec<TrackDto>,
     pub albums: Vec<AlbumInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album_error: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -601,64 +603,64 @@ pub async fn playlist_detail(
 }
 
 #[tauri::command]
-pub async fn artist_page(id: String) -> Result<ArtistPageData, String> {
+pub async fn artist_page(state: State<'_, AppState>, id: String) -> Result<ArtistPageData, String> {
     let id = id.trim().to_string();
-    if id.is_empty() {
-        return Err("歌手 ID 为空".to_string());
+    if id.is_empty() || !id.chars().all(|character| character.is_ascii_digit()) {
+        return Err("歌手 ID 无效".to_string());
     }
-    let detail_id = id.clone();
-    let detail = tokio::task::spawn_blocking(move || crate::libnetease::artist_detail(&detail_id))
-        .await
-        .map_err(|e| format!("歌手详情线程失败: {e}"))??;
+    let detail = get_json(&state, &format!("/api/v1/artist/{id}"), &[]).await?;
     let artist_value = detail
         .get("artist")
         .ok_or_else(|| "网易云没有返回歌手信息".to_string())?;
     let artist = normalize_artist(artist_value).ok_or_else(|| "歌手信息格式异常".to_string())?;
     let songs = normalize_tracks(detail.get("hotSongs"));
 
-    let albums_id = id.clone();
-    let albums_value =
-        tokio::task::spawn_blocking(move || crate::libnetease::artist_albums(&albums_id))
-            .await
-            .ok()
-            .and_then(Result::ok);
-    if albums_value.is_none() {
-        crate::logger::log("warn", "artist", &format!("id={id} albums unavailable"));
-    }
-    let albums: Vec<AlbumInfo> = albums_value
-        .as_ref()
-        .and_then(|value| value.get("hotAlbums"))
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|album| normalize_album(album, &id, &artist.name))
-                .collect()
-        })
-        .unwrap_or_default();
+    let albums_query = [("limit", "1000".to_string()), ("offset", "0".to_string())];
+    let albums_result = get_json(&state, &format!("/api/artist/albums/{id}"), &albums_query).await;
+    let (albums, album_error) = match albums_result {
+        Ok(value) => {
+            let albums = value
+                .get("hotAlbums")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|album| normalize_album(album, &id, &artist.name))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            (albums, None)
+        }
+        Err(error) => {
+            crate::logger::log("warn", "artist", &format!("id={id} albums failed: {error}"));
+            (Vec::new(), Some(error))
+        }
+    };
 
     crate::logger::log(
         "info",
         "artist",
         &format!(
-            "id={id} name={} songs={} albums={}",
+            "id={id} name={} songs={} albums={} album_error={}",
             artist.name,
             songs.len(),
-            albums.len()
+            albums.len(),
+            album_error.is_some()
         ),
     );
     Ok(ArtistPageData {
         artist,
         songs,
         albums,
+        album_error,
     })
 }
 
 #[tauri::command]
 pub async fn album_page(id: String) -> Result<AlbumPageData, String> {
     let id = id.trim().to_string();
-    if id.is_empty() {
-        return Err("专辑 ID 为空".to_string());
+    if id.is_empty() || !id.chars().all(|character| character.is_ascii_digit()) {
+        return Err("专辑 ID 无效".to_string());
     }
     let detail_id = id.clone();
     let value = tokio::task::spawn_blocking(move || crate::libnetease::album_detail(&detail_id))

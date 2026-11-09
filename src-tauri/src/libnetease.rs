@@ -66,12 +66,6 @@ extern "C" {
 
     fn ne_song_url_v1(id: *const c_char, level: *const c_char) -> *mut NeResp;
     fn ne_song_like(track_id: *const c_char, like: *const c_char) -> *mut NeResp;
-    fn ne_artist_detail(id: *const c_char) -> *mut NeResp;
-    fn ne_artist_albums(
-        id: *const c_char,
-        limit: *const c_char,
-        offset: *const c_char,
-    ) -> *mut NeResp;
     fn ne_album_detail(id: *const c_char) -> *mut NeResp;
     fn ne_resp_free(resp: *mut NeResp);
     fn decro_alloc(size: usize) -> *mut c_void;
@@ -222,30 +216,6 @@ fn response_json(resp: *mut NeResp, target: &str) -> Result<Value, String> {
             return Err(format!("网易云：{message}（{status}, code={code}）"));
         }
     }
-    Ok(json)
-}
-
-pub fn artist_detail(id: &str) -> Result<Value, String> {
-    init();
-    let _guard = lock();
-    let resp = unsafe { ne_artist_detail(cstring(id).as_ptr()) };
-    let json = response_json(resp, "歌手详情")?;
-    crate::logger::log("debug", "artist", &format!("id={id} detail loaded"));
-    Ok(json)
-}
-
-pub fn artist_albums(id: &str) -> Result<Value, String> {
-    init();
-    let _guard = lock();
-    let resp = unsafe {
-        ne_artist_albums(
-            cstring(id).as_ptr(),
-            cstring("24").as_ptr(),
-            cstring("0").as_ptr(),
-        )
-    };
-    let json = response_json(resp, "歌手专辑")?;
-    crate::logger::log("debug", "artist", &format!("id={id} albums loaded"));
     Ok(json)
 }
 
