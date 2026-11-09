@@ -556,8 +556,15 @@ export default function App() {
       // Retry after a load interrupted the first play() attempt.
       if (audio && playing() && audio.paused && !audioFailed) attemptPlay();
     });
+    audio.addEventListener("play", () => {
+      debugLog("audio play event", { id: current().id });
+      setPlaying(true);
+      audioFailed = false;
+    });
     audio.addEventListener("playing", () => {
       debugLog("audio playing", { id: current().id });
+      setPlaying(true);
+      audioFailed = false;
     });
     audio.addEventListener("waiting", () => {
       debugLog("audio waiting", { id: current().id });
@@ -601,6 +608,7 @@ export default function App() {
     audio.addEventListener("canplay", applyPendingSeek);
     audio.addEventListener("pause", () => {
       debugLog("audio pause event", { id: current().id });
+      setPlaying(false);
     });
     audio.addEventListener("ended", () => {
       debugLog("audio ended", { id: current().id });
@@ -692,8 +700,13 @@ export default function App() {
   ));
 
   createEffect(() => {
+    // Read `playing` before the audio guard. At the first effect run `audio`
+    // is still null because initAudio() runs in onMount; returning before
+    // reading the signal would leave this effect unsubscribed forever, so
+    // pause would update the UI while the audio element kept playing.
+    const shouldPlay = playing();
     if (!audio) return;
-    if (playing()) {
+    if (shouldPlay) {
       if (audio.paused && audio.src) attemptPlay();
     } else {
       audio.pause();
@@ -701,7 +714,8 @@ export default function App() {
   });
 
   createEffect(() => {
-    if (audio) audio.volume = volume();
+    const nextVolume = volume();
+    if (audio) audio.volume = nextVolume;
   });
 
   const mediaKey = createMemo(() => `${current().id}:${playing()}:${queue().length}`);
@@ -755,25 +769,8 @@ export default function App() {
 
       void listenMediaControls((action) => {
         debugLog("media control", { action });
-        if (action === "play") {
-          if (!playing()) togglePlay();
-        } else if (action === "pause") {
-          setPlaying(false);
-        } else if (action === "next") {
-          nextTrack();
-        } else if (action === "previous") {
-          prevTrack();
-        } else if (action === "stop") {
-          setPlaying(false);
-          setProgress(0);
-          if (audio) {
-            try {
-              audio.currentTime = 0;
-            } catch {
-              /* ignore */
-            }
-          }
-        }
+        if (action === "next") nextTrack();
+        else if (action === "previous") prevTrack();
       })
         .then((unlisten) => {
           if (mediaDisposed) unlisten();

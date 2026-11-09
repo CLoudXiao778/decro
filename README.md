@@ -10,16 +10,20 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.1 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.1/Decro.Desktop_0.4.1_x64-setup.exe)
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.4.2 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.4.2/Decro.Desktop_0.4.2_x64-setup.exe)
 - 安装包约 **2.49 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
 - 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.4.1 版本**：进度条改为单条 SVG 路径在直线与曲线之间形变；保留 0.4.0 的 Windows 媒体控制与迷你播放器移除。
+- 这是 **0.4.2 修复版**：修复 Windows 系统媒体控制播放/暂停与界面状态不同步；保留 0.4.1 的进度条形变与 0.4.0 的媒体信息同步。
 
 ## 当前状态
 
-- **阶段**：0.4.1 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
+- **阶段**：0.4.2 · Decro 品牌 + libnetease 登录/播放 + Windows 系统媒体控制
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.4.2 修复**：
+  - 修复点击暂停只改了 UI、音频仍继续播放：暂停 effect 首次运行时 `audio` 尚未初始化，在读取 `playing()` 前就 return，导致 effect 没订阅播放状态。现在先读取信号再判断音频对象。
+  - 播放/暂停不再注册自定义 Media Session handler，交回 WebView2 原生 `<audio>` 控制，避免系统暂停后界面/波形继续跑。
+  - 用 `audio` 的 `play`/`playing`/`pause` 事件回写界面状态；上一首/下一首仍由自定义 handler 控制。
 - **0.4.1 修复**：
   - 播放页进度条不再用波形/直线两个元素做透明度交叉淡入淡出；改为同一个 SVG path 在 500ms 内从曲线形变为直线、再形变回曲线。
   - 波形滚动使用 transform，低性能模式与减少动效设置仍然生效。

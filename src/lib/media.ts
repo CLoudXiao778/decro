@@ -1,7 +1,7 @@
 import { isTauri } from "./auth";
 import { debugLog } from "./log";
 
-export type MediaControlAction = "play" | "pause" | "next" | "previous" | "stop";
+export type MediaControlAction = "next" | "previous";
 
 export type MediaSessionUpdate = {
   id: string;
@@ -71,15 +71,17 @@ export function clearMediaSession(): void {
   }
 }
 
+// Play/pause are deliberately left to Chromium's default media-action
+// handling: WebView2 pauses/plays the active HTMLAudioElement itself. Binding
+// custom handlers for those two actions made the native controls bypass the
+// Solid playback signal, so the UI could stay "playing" while the audio was
+// paused (or the reverse). Only the track-skip actions need our code.
 const ACTION_HANDLERS: {
   action: MediaSessionAction;
   control: MediaControlAction;
 }[] = [
-  { action: "play", control: "play" },
-  { action: "pause", control: "pause" },
   { action: "nexttrack", control: "next" },
   { action: "previoustrack", control: "previous" },
-  { action: "stop", control: "stop" },
 ];
 
 /**
