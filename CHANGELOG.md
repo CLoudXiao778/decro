@@ -28,6 +28,8 @@ Windows 系统媒体集成，并移除未使用的迷你播放器。
 ### Changed
 
 - 版本号 0.4.0；播放与登录架构不变。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.4.0`，约 **2.49 MiB**（2,610,783 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`5920865d8bc4a0d2f2064c702dc2073da8ea0204363771e7f9cf5a26c1600f3f`。
 
 ## [0.3.2] - 2026-11-09
 
