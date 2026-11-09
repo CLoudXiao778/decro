@@ -911,7 +911,6 @@ export default function App() {
                     <Explore
                       current={current()}
                       playing={playing()}
-                      account={account()}
                       featured={featured()}
                       radar={radar()}
                       recent={home()?.recent ?? []}
@@ -932,7 +931,6 @@ export default function App() {
                       playing={playing()}
                       account={account()}
                       likedTracks={likedPlaylist()?.tracks ?? []}
-                      onProfile={openProfile}
                       onOpenPlaylist={openPlaylist}
                       onPlayTrack={playTrack}
                     />
@@ -956,9 +954,7 @@ export default function App() {
                   </Match>
                   <Match when={page() === "podcast"}>
                     <PodcastPage
-                      account={account()}
                       playlists={home()?.recommended ?? []}
-                      onProfile={openProfile}
                       onPlayTrack={playTrack}
                       onOpenPlaylist={openPlaylist}
                     />

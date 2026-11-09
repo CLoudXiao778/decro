@@ -1,13 +1,12 @@
 import { For, Show } from "solid-js";
 import type { Playlist, Track } from "../data/mock";
-import type { Account } from "../lib/netease";
 import { CoverArt } from "../components/CoverArt";
 import { Icon } from "../components/Icon";
+import { Shelf } from "../components/Shelf";
 
 export function Explore(props: {
   current: Track;
   playing: boolean;
-  account: Account | null;
   featured: Playlist | null;
   radar: Playlist | null;
   recent: Track[];
@@ -36,16 +35,6 @@ export function Explore(props: {
     <div class="page page--explore">
       <header class="source-head">
         <h1 class="source-title">主页</h1>
-        <button
-          class="source-avatar"
-          aria-label="个人资料"
-          title="个人资料"
-          onClick={props.onProfile}
-        >
-          <span class="source-avatar__inner">
-            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
-          </span>
-        </button>
       </header>
 
       <Show when={props.loading || props.error}>
@@ -156,7 +145,7 @@ export function Explore(props: {
           when={props.recent.length > 0}
           fallback={<div class="library-empty">登录后，这里会显示你最近听过的歌。</div>}
         >
-          <div class="shelf shelf--tall">
+          <Shelf class="shelf--tall">
             <For each={props.recent.slice(0, 8)}>
               {(track) => (
                 <button class="shelf-tile" onClick={() => props.onPlayTrack(track, props.recent)}>
@@ -176,7 +165,7 @@ export function Explore(props: {
                 </button>
               )}
             </For>
-          </div>
+            </Shelf>
         </Show>
       </section>
 
@@ -187,7 +176,7 @@ export function Explore(props: {
             查看更多 <Icon name="chevron-right" size={14} />
           </button>
         </div>
-        <div class="shelf shelf--playlist">
+        <Shelf class="shelf--playlist">
           <For each={props.recommended.slice(0, 8)}>
             {(playlist, index) => (
               <button
@@ -207,7 +196,7 @@ export function Explore(props: {
               </button>
             )}
           </For>
-        </div>
+            </Shelf>
       </section>
 
       <section class="source-section">
@@ -257,7 +246,7 @@ export function Explore(props: {
           <h2>热门歌单</h2>
           <span class="source-section__note">来自网易云推荐</span>
         </div>
-        <div class="shelf shelf--playlist">
+        <Shelf class="shelf--playlist">
           <For each={props.charts}>
             {(playlist) => (
               <button
@@ -277,7 +266,7 @@ export function Explore(props: {
               </button>
             )}
           </For>
-        </div>
+            </Shelf>
       </section>
     </div>
   );

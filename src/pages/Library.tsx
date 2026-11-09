@@ -3,6 +3,7 @@ import type { Playlist, Track } from "../data/mock";
 import type { Account } from "../lib/netease";
 import { CoverArt } from "../components/CoverArt";
 import { Icon, type IconName } from "../components/Icon";
+import { Shelf } from "../components/Shelf";
 
 const rows: { label: string; icon: IconName; kind: "liked" | "playlists" | "recent" }[] = [
   { label: "喜爱歌曲", icon: "star-fill", kind: "liked" },
@@ -44,16 +45,6 @@ export function Library(props: {
     <div class="page page--library-source">
       <header class="source-head">
         <h1 class="source-title">资料库</h1>
-        <button
-          class="source-avatar"
-          aria-label="个人资料"
-          title="个人资料"
-          onClick={props.account ? undefined : props.onLogin}
-        >
-          <span class="source-avatar__inner">
-            {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
-          </span>
-        </button>
       </header>
 
       <Show
@@ -98,7 +89,7 @@ export function Library(props: {
             when={props.recent.length > 0}
             fallback={<div class="library-empty">最近还没有播放记录。</div>}
           >
-            <div class="shelf shelf--tall">
+            <Shelf class="shelf--tall">
               <For each={props.recent.slice(0, 10)}>
                 {(track) => (
                   <button class="shelf-tile" onClick={() => props.onPlayTrack(track, props.recent)}>
@@ -118,7 +109,7 @@ export function Library(props: {
                   </button>
                 )}
               </For>
-            </div>
+            </Shelf>
           </Show>
         </section>
 
@@ -131,7 +122,7 @@ export function Library(props: {
             when={props.playlists.length > 0}
             fallback={<div class="library-empty">登录后创建的歌单和收藏的歌单会出现在这里。</div>}
           >
-            <div class="shelf shelf--playlist">
+            <Shelf class="shelf--playlist">
               <For each={props.playlists}>
                 {(playlist) => (
                   <button
@@ -151,7 +142,7 @@ export function Library(props: {
                   </button>
                 )}
               </For>
-            </div>
+            </Shelf>
           </Show>
         </section>
       </Show>

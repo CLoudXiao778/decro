@@ -1,7 +1,7 @@
 {
   "name": "decro-desktop",
   "private": true,
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Decro — an unofficial desktop recreation of Cirro, focused on visual/motion fidelity and online playback.",
   "type": "module",
   "scripts": {

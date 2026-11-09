@@ -10,7 +10,6 @@ export function SearchPage(props: {
   playing: boolean;
   account: Account | null;
   likedTracks: Track[];
-  onProfile: () => void;
   onOpenPlaylist: (playlist: Playlist, origin?: HTMLElement) => void;
   onPlayTrack: (track: Track, context?: Track[]) => void;
 }) {
@@ -83,16 +82,6 @@ export function SearchPage(props: {
       <Show when={!focused() && !query()}>
         <header class="source-head">
           <h1 class="source-title">搜索</h1>
-          <button
-            class="source-avatar"
-            aria-label="个人资料"
-            title="个人资料"
-            onClick={props.onProfile}
-          >
-            <span class="source-avatar__inner">
-              {props.account ? props.account.nickname.slice(0, 1).toUpperCase() : "D"}
-            </span>
-          </button>
         </header>
         <button
           class="search-source-pill"
