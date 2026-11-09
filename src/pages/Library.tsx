@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Playlist, Track } from "../data/mock";
 import type { Account } from "../lib/netease";
 import { CoverArt } from "../components/CoverArt";
@@ -26,6 +26,40 @@ export function Library(props: {
   onToggleLike: (track: Track) => void;
   onLogin: () => void;
 }) {
+  const [recentExpanded, setRecentExpanded] = createSignal(false);
+  const [playlistsExpanded, setPlaylistsExpanded] = createSignal(false);
+  const recentLimit = 10;
+  const playlistLimit = 8;
+
+  const readUsage = (): Record<string, number> => {
+    try {
+      const raw = localStorage.getItem("decro.playlistUsage");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const commonPlaylists = createMemo(() => {
+    const usage = readUsage();
+    return [...props.playlists]
+      .sort(
+        (a, b) =>
+          (usage[b.id] ?? 0) - (usage[a.id] ?? 0) ||
+          (b.playCount ?? 0) - (a.playCount ?? 0) ||
+          (b.updateTime ?? 0) - (a.updateTime ?? 0),
+      )
+      .slice(0, playlistLimit);
+  });
+
+  const recentItems = createMemo(() =>
+    recentExpanded() ? props.recent : props.recent.slice(0, recentLimit),
+  );
+  const playlistItems = createMemo(() =>
+    playlistsExpanded() ? props.playlists : commonPlaylists(),
+  );
+
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -83,14 +117,25 @@ export function Library(props: {
         <section class="source-section" id="library-recent">
           <div class="source-section__head">
             <h2>最近播放</h2>
-            <span class="source-section__note">{props.recent.length} 首</span>
+            <div class="source-section__tools">
+              <span class="source-section__note">{props.recent.length} 首</span>
+              <Show when={props.recent.length > recentLimit}>
+                <button
+                  class="source-section__more"
+                  onClick={() => setRecentExpanded((value) => !value)}
+                >
+                  {recentExpanded() ? "收起" : "更多"}
+                  <Icon name={recentExpanded() ? "chevron-down" : "chevron-right"} size={14} />
+                </button>
+              </Show>
+            </div>
           </div>
           <Show
             when={props.recent.length > 0}
             fallback={<div class="library-empty">最近还没有播放记录。</div>}
           >
-            <Shelf class="shelf--tall">
-              <For each={props.recent.slice(0, 10)}>
+            <Shelf class={`shelf--tall ${recentExpanded() ? "shelf--wrap" : ""}`}>
+              <For each={recentItems()}>
                 {(track) => (
                   <button class="shelf-tile" onClick={() => props.onPlayTrack(track, props.recent)}>
                     <span class="shelf-tile__cover">
@@ -115,15 +160,29 @@ export function Library(props: {
 
         <section class="source-section" id="library-playlists">
           <div class="source-section__head">
-            <h2>我的歌单</h2>
-            <span class="source-section__note">{props.playlists.length} 个</span>
+            <h2>
+              我的歌单
+              <span class="source-section__badge">{playlistsExpanded() ? "全部" : "常用"}</span>
+            </h2>
+            <div class="source-section__tools">
+              <span class="source-section__note">{props.playlists.length} 个</span>
+              <Show when={props.playlists.length > playlistLimit}>
+                <button
+                  class="source-section__more"
+                  onClick={() => setPlaylistsExpanded((value) => !value)}
+                >
+                  {playlistsExpanded() ? "收起" : "更多"}
+                  <Icon name={playlistsExpanded() ? "chevron-down" : "chevron-right"} size={14} />
+                </button>
+              </Show>
+            </div>
           </div>
           <Show
             when={props.playlists.length > 0}
             fallback={<div class="library-empty">登录后创建的歌单和收藏的歌单会出现在这里。</div>}
           >
-            <Shelf class="shelf--playlist">
-              <For each={props.playlists}>
+            <Shelf class={`shelf--playlist ${playlistsExpanded() ? "shelf--wrap" : ""}`}>
+              <For each={playlistItems()}>
                 {(playlist) => (
                   <button
                     class="shelf-tile"

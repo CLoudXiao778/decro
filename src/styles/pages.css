@@ -4123,3 +4123,33 @@ button.settings-source-row:hover {
   opacity: 0.42;
   pointer-events: none;
 }
+
+.source-section__tools {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.source-section__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  color: var(--on-surface-3);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  vertical-align: 2px;
+}
+.shelf.shelf--wrap {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  overflow: visible;
+  scroll-snap-type: none;
+}
+.shelf.shelf--wrap.shelf--tall {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}

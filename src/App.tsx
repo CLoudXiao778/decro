@@ -363,6 +363,17 @@ export default function App() {
   };
 
   const openPlaylist = (playlist: Playlist, origin?: HTMLElement) => {
+    try {
+      const key = "decro.playlistUsage";
+      const raw = localStorage.getItem(key);
+      const usage = raw ? JSON.parse(raw) : {};
+      if (usage && typeof usage === "object") {
+        usage[playlist.id] = (Number(usage[playlist.id]) || 0) + 1;
+        localStorage.setItem(key, JSON.stringify(usage));
+      }
+    } catch {
+      /* ignore local usage tracking */
+    }
     if (!detail()) detailScrollTop = mainScroll?.scrollTop ?? 0;
     setDetailOrigin(origin?.getBoundingClientRect() ?? null);
     setDetailOnTop(true);
