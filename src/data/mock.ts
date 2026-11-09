@@ -8,7 +8,9 @@ export type Track = {
   id: string;
   title: string;
   artist: string;
+  artistId?: string;
   album: string;
+  albumId?: string;
   duration: string;
   durationSec: number;
   palette: [string, string, string, string];
@@ -68,7 +70,9 @@ export const tracks: Track[] = [
     id: "t1",
     title: "夜航",
     artist: "Lumen",
+    artistId: "33927412",
     album: "Neon Tides",
+    albumId: "84072830",
     duration: "4:38",
     durationSec: 278,
     palette: ["#7a1f2b", "#ff5f4d", "#f0b15c", "#2a1020"],

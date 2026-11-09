@@ -1,6 +1,6 @@
 [package]
 name = "decro-desktop"
-version = "0.4.7"
+version = "0.5.0"
 description = "Decro — an unofficial desktop recreation of Cirro"
 authors = ["Decro contributors"]
 edition = "2021"

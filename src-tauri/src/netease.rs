@@ -12,7 +12,9 @@ pub struct TrackDto {
     pub id: String,
     pub name: String,
     pub artist: String,
+    pub artist_id: String,
     pub album: String,
+    pub album_id: String,
     pub duration_ms: u64,
     pub cover_url: String,
     pub fee: i64,
@@ -57,6 +59,28 @@ pub struct LibraryData {
 pub struct SearchData {
     pub songs: Vec<TrackDto>,
     pub playlists: Vec<PlaylistDto>,
+    pub artists: Vec<ArtistInfo>,
+    pub albums: Vec<AlbumInfo>,
+    pub lyrics: Vec<LyricSearchDto>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricSearchDto {
+    pub track: TrackDto,
+    pub lines: Vec<String>,
+}
+
+impl SearchData {
+    fn empty() -> Self {
+        Self {
+            songs: Vec::new(),
+            playlists: Vec::new(),
+            artists: Vec::new(),
+            albums: Vec::new(),
+            lyrics: Vec::new(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -66,6 +90,56 @@ pub struct LyricLine {
     pub text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub translation: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistInfo {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: String,
+    pub brief_desc: String,
+    pub aliases: Vec<String>,
+    pub album_count: u64,
+    pub song_count: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumInfo {
+    pub id: String,
+    pub name: String,
+    pub cover_url: String,
+    pub publish_time: u64,
+    pub size: u64,
+    pub company: String,
+    pub kind: String,
+    pub artist: String,
+    pub artist_id: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistRef {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistPageData {
+    pub artist: ArtistInfo,
+    pub songs: Vec<TrackDto>,
+    pub albums: Vec<AlbumInfo>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumPageData {
+    pub album: AlbumInfo,
+    pub description: String,
+    pub artists: Vec<ArtistRef>,
+    pub songs: Vec<TrackDto>,
 }
 
 #[derive(Serialize)]
@@ -154,6 +228,111 @@ fn has_object(value: &Value, key: &str) -> bool {
     value.get(key).is_some_and(|item| !item.is_null())
 }
 
+fn first_artist_id(value: &Value) -> String {
+    value
+        .get("ar")
+        .or_else(|| value.get("artists"))
+        .and_then(Value::as_array)
+        .and_then(|list| list.first())
+        .and_then(|artist| artist.get("id"))
+        .and_then(value_string)
+        .unwrap_or_default()
+}
+
+fn normalize_artist(value: &Value) -> Option<ArtistInfo> {
+    let id = value.get("id").and_then(value_string)?;
+    let aliases = value
+        .get("alias")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(Value::as_str)
+                .filter(|alias| !alias.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(ArtistInfo {
+        id,
+        name: value
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("未知歌手")
+            .to_string(),
+        avatar_url: value
+            .get("picUrl")
+            .or_else(|| value.get("img1v1Url"))
+            .and_then(Value::as_str)
+            .filter(|url| !url.is_empty())
+            .map(sized_cover)
+            .unwrap_or_default(),
+        brief_desc: value
+            .get("briefDesc")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        aliases,
+        album_count: value.get("albumSize").and_then(Value::as_u64).unwrap_or(0),
+        song_count: value.get("musicSize").and_then(Value::as_u64).unwrap_or(0),
+    })
+}
+
+fn normalize_album(
+    value: &Value,
+    fallback_artist_id: &str,
+    fallback_artist: &str,
+) -> Option<AlbumInfo> {
+    let id = value.get("id").and_then(value_string)?;
+    let artists = value.get("artists").and_then(Value::as_array);
+    let artist = artists
+        .map(|list| {
+            list.iter()
+                .filter_map(|artist| artist.get("name").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join(" / ")
+        })
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| fallback_artist.to_string());
+    let artist_id = artists
+        .and_then(|list| list.first())
+        .and_then(|artist| artist.get("id"))
+        .and_then(value_string)
+        .filter(|id| !id.is_empty())
+        .unwrap_or_else(|| fallback_artist_id.to_string());
+    Some(AlbumInfo {
+        id,
+        name: value
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("未命名专辑")
+            .to_string(),
+        cover_url: value
+            .get("picUrl")
+            .or_else(|| value.get("blurPicUrl"))
+            .and_then(Value::as_str)
+            .map(sized_cover)
+            .unwrap_or_default(),
+        publish_time: value
+            .get("publishTime")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        size: value.get("size").and_then(Value::as_u64).unwrap_or(0),
+        company: value
+            .get("company")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        kind: value
+            .get("subType")
+            .or_else(|| value.get("type"))
+            .and_then(Value::as_str)
+            .unwrap_or("专辑")
+            .to_string(),
+        artist,
+        artist_id,
+    })
+}
+
 pub fn normalize_song(value: &Value) -> Option<TrackDto> {
     let id = value.get("id").and_then(value_string)?;
     let name = value
@@ -193,6 +372,11 @@ pub fn normalize_song(value: &Value) -> Option<TrackDto> {
         .map(sized_cover)
         .unwrap_or_default();
 
+    let artist_id = first_artist_id(value);
+    let album_id = album_value
+        .and_then(|album| album.get("id"))
+        .and_then(value_string)
+        .unwrap_or_default();
     let duration_ms = value
         .get("dt")
         .or_else(|| value.get("duration"))
@@ -215,7 +399,9 @@ pub fn normalize_song(value: &Value) -> Option<TrackDto> {
         id,
         name,
         artist: artists,
+        artist_id,
         album,
+        album_id,
         duration_ms,
         cover_url: cover,
         fee,
@@ -415,6 +601,121 @@ pub async fn playlist_detail(
 }
 
 #[tauri::command]
+pub async fn artist_page(id: String) -> Result<ArtistPageData, String> {
+    let id = id.trim().to_string();
+    if id.is_empty() {
+        return Err("歌手 ID 为空".to_string());
+    }
+    let detail_id = id.clone();
+    let detail = tokio::task::spawn_blocking(move || crate::libnetease::artist_detail(&detail_id))
+        .await
+        .map_err(|e| format!("歌手详情线程失败: {e}"))??;
+    let artist_value = detail
+        .get("artist")
+        .ok_or_else(|| "网易云没有返回歌手信息".to_string())?;
+    let artist = normalize_artist(artist_value).ok_or_else(|| "歌手信息格式异常".to_string())?;
+    let songs = normalize_tracks(detail.get("hotSongs"));
+
+    let albums_id = id.clone();
+    let albums_value =
+        tokio::task::spawn_blocking(move || crate::libnetease::artist_albums(&albums_id))
+            .await
+            .ok()
+            .and_then(Result::ok);
+    if albums_value.is_none() {
+        crate::logger::log("warn", "artist", &format!("id={id} albums unavailable"));
+    }
+    let albums: Vec<AlbumInfo> = albums_value
+        .as_ref()
+        .and_then(|value| value.get("hotAlbums"))
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|album| normalize_album(album, &id, &artist.name))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    crate::logger::log(
+        "info",
+        "artist",
+        &format!(
+            "id={id} name={} songs={} albums={}",
+            artist.name,
+            songs.len(),
+            albums.len()
+        ),
+    );
+    Ok(ArtistPageData {
+        artist,
+        songs,
+        albums,
+    })
+}
+
+#[tauri::command]
+pub async fn album_page(id: String) -> Result<AlbumPageData, String> {
+    let id = id.trim().to_string();
+    if id.is_empty() {
+        return Err("专辑 ID 为空".to_string());
+    }
+    let detail_id = id.clone();
+    let value = tokio::task::spawn_blocking(move || crate::libnetease::album_detail(&detail_id))
+        .await
+        .map_err(|e| format!("专辑详情线程失败: {e}"))??;
+    let album_value = value
+        .get("album")
+        .ok_or_else(|| "网易云没有返回专辑信息".to_string())?;
+    let artists = album_value
+        .get("artists")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|artist| {
+                    let id = artist.get("id").and_then(value_string)?;
+                    let name = artist
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("未知歌手")
+                        .to_string();
+                    Some(ArtistRef { id, name })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let artist_id = artists
+        .first()
+        .map(|artist| artist.id.clone())
+        .unwrap_or_default();
+    let artist_name = artists
+        .iter()
+        .map(|artist| artist.name.as_str())
+        .collect::<Vec<_>>()
+        .join(" / ");
+    let album = normalize_album(album_value, &artist_id, &artist_name)
+        .ok_or_else(|| "专辑信息格式异常".to_string())?;
+    let songs = normalize_tracks(value.get("songs"));
+    let description = album_value
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    crate::logger::log(
+        "info",
+        "album",
+        &format!("id={id} name={} songs={}", album.name, songs.len()),
+    );
+    Ok(AlbumPageData {
+        album,
+        description,
+        artists,
+        songs,
+    })
+}
+
+#[tauri::command]
 pub async fn library_data(state: State<'_, AppState>) -> Result<LibraryData, String> {
     let account = state
         .account()
@@ -474,10 +775,7 @@ pub async fn search_music(
 ) -> Result<SearchData, String> {
     let keyword = keyword.trim().to_string();
     if keyword.is_empty() {
-        return Ok(SearchData {
-            songs: Vec::new(),
-            playlists: Vec::new(),
-        });
+        return Ok(SearchData::empty());
     }
 
     let song_query = [
@@ -523,7 +821,134 @@ pub async fn search_music(
         })
         .unwrap_or_default();
 
-    Ok(SearchData { songs, playlists })
+    Ok(SearchData {
+        songs,
+        playlists,
+        ..SearchData::empty()
+    })
+}
+
+#[tauri::command]
+pub async fn search_kind(
+    state: State<'_, AppState>,
+    kind: String,
+    keyword: String,
+) -> Result<SearchData, String> {
+    let keyword = keyword.trim().to_string();
+    if keyword.is_empty() {
+        return Ok(SearchData::empty());
+    }
+    let (type_id, limit) = match kind.as_str() {
+        "playlist" => ("1000", "24"),
+        "artist" => ("100", "18"),
+        "album" => ("10", "24"),
+        "lyric" => ("1006", "18"),
+        _ => ("1", "30"),
+    };
+    let query = [
+        ("s", keyword.clone()),
+        ("type", type_id.to_string()),
+        ("limit", limit.to_string()),
+        ("offset", "0".to_string()),
+    ];
+    let value = get_json(&state, "/api/cloudsearch/pc", &query).await?;
+    let result = value.get("result");
+    let mut data = SearchData::empty();
+
+    match kind.as_str() {
+        "playlist" => {
+            data.playlists = result
+                .and_then(|value| value.get("playlists"))
+                .and_then(Value::as_array)
+                .map(|items| items.iter().filter_map(normalize_playlist).collect())
+                .unwrap_or_default();
+        }
+        "artist" => {
+            data.artists = result
+                .and_then(|value| value.get("artists"))
+                .and_then(Value::as_array)
+                .map(|items| items.iter().filter_map(normalize_artist).collect())
+                .unwrap_or_default();
+        }
+        "album" => {
+            data.albums = result
+                .and_then(|value| value.get("albums"))
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|album| normalize_album(album, "", ""))
+                        .collect()
+                })
+                .unwrap_or_default();
+        }
+        "lyric" => {
+            let needle = keyword.to_lowercase();
+            data.lyrics = result
+                .and_then(|value| value.get("songs"))
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|song| {
+                            let track = normalize_song(song)?;
+                            let all = song
+                                .get("lyrics")
+                                .and_then(Value::as_array)
+                                .map(|lines| {
+                                    lines
+                                        .iter()
+                                        .filter_map(Value::as_str)
+                                        .map(|line| {
+                                            line.replace("<b>", "")
+                                                .replace("</b>", "")
+                                                .replace("<em>", "")
+                                                .replace("</em>", "")
+                                        })
+                                        .filter(|line| !line.trim().is_empty())
+                                        .collect::<Vec<_>>()
+                                })
+                                .unwrap_or_default();
+                            let matched = all
+                                .iter()
+                                .filter(|line| line.to_lowercase().contains(&needle))
+                                .take(3)
+                                .cloned()
+                                .collect::<Vec<_>>();
+                            let lines = if matched.is_empty() {
+                                all.into_iter().take(4).collect()
+                            } else {
+                                matched
+                            };
+                            Some(LyricSearchDto { track, lines })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+        }
+        _ => {
+            data.songs = result
+                .and_then(|value| value.get("songs"))
+                .and_then(Value::as_array)
+                .map(|items| items.iter().filter_map(normalize_song).collect())
+                .unwrap_or_default();
+        }
+    }
+
+    crate::logger::log(
+        "debug",
+        "search",
+        &format!(
+            "kind={kind} keyword_len={} songs={} playlists={} artists={} albums={} lyrics={}",
+            keyword.len(),
+            data.songs.len(),
+            data.playlists.len(),
+            data.artists.len(),
+            data.albums.len(),
+            data.lyrics.len()
+        ),
+    );
+    Ok(data)
 }
 
 fn parse_lrc(text: &str) -> Vec<(f64, String)> {

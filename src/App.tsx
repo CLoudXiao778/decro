@@ -12,6 +12,8 @@ import type { Playlist, Track } from "./data/mock";
 import { tracks as mockTracks } from "./data/mock";
 import { getAuthStatus, isTauri, logout as apiLogout, type Account } from "./lib/auth";
 import {
+  getAlbumPage,
+  getArtistPage,
   getHomeFeed,
   getLibraryData,
   getLyric,
@@ -25,6 +27,7 @@ import {
   type LibraryBundle,
   type PlaybackConfig,
 } from "./lib/netease";
+import { EntityPage, type EntityEntry } from "./pages/Entity";
 import { formatTime } from "./lib/format";
 import { debugLog, openLogFolder } from "./lib/log";
 import { clearMediaSession, listenMediaControls, updateMediaSession } from "./lib/media";
@@ -71,6 +74,7 @@ export default function App() {
   const [page, setPage] = createSignal<Page>("explore");
   const [detail, setDetail] = createSignal<Playlist | null>(null);
   const [detailOrigin, setDetailOrigin] = createSignal<DOMRect | null>(null);
+  const [entityStack, setEntityStack] = createSignal<EntityEntry[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [current, setCurrent] = createSignal<Track>(mockTracks[0]);
   const [queue, setQueue] = createSignal<Track[]>(isTauri() ? [] : mockTracks);
@@ -109,11 +113,13 @@ export default function App() {
   let pendingSeek: number | null = null;
   let audioFailed = false;
   let playRequest = 0;
+  let entityKey = 0;
   let likedLoaded = false;
   const pendingLikes = new Set<string>();
 
   const isLiked = (track: Track) => likedIds().has(track.id);
-  const canGoBack = createMemo(() => detail() !== null);
+  const entity = createMemo(() => entityStack().at(-1) ?? null);
+  const canGoBack = createMemo(() => detail() !== null || entityStack().length > 0);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -202,6 +208,10 @@ export default function App() {
   };
 
   const back = () => {
+    if (entityStack().length > 0) {
+      setEntityStack((stack) => stack.slice(0, -1));
+      return;
+    }
     if (detail()) {
       setDetail(null);
       setDetailOrigin(null);
@@ -210,9 +220,95 @@ export default function App() {
     }
   };
 
+  const openArtist = (id: string) => {
+    if (!id) return;
+    const current = entity();
+    if (current?.kind === "artist" && current.id === id && !current.error) return;
+    setPlayerOpen(false);
+    setDetail(null);
+    setDetailOrigin(null);
+    requestAnimationFrame(() =>
+      mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }),
+    );
+    const key = ++entityKey;
+    setEntityStack((stack) => [
+      ...stack,
+      { kind: "artist", key, id, loading: true, data: null },
+    ]);
+    void getArtistPage(id)
+      .then((data) => {
+        setEntityStack((stack) =>
+          stack.map((item) =>
+            item.key === key && item.kind === "artist"
+              ? { ...item, loading: false, data }
+              : item,
+          ),
+        );
+      })
+      .catch((error) => {
+        setEntityStack((stack) =>
+          stack.map((item) =>
+            item.key === key && item.kind === "artist"
+              ? {
+                  ...item,
+                  loading: false,
+                  error: typeof error === "string" ? error : "歌手页加载失败",
+                }
+              : item,
+          ),
+        );
+      });
+  };
+
+  const openAlbum = (id: string) => {
+    if (!id) return;
+    const current = entity();
+    if (current?.kind === "album" && current.id === id && !current.error) return;
+    setPlayerOpen(false);
+    setDetail(null);
+    setDetailOrigin(null);
+    requestAnimationFrame(() =>
+      mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }),
+    );
+    const key = ++entityKey;
+    setEntityStack((stack) => [
+      ...stack,
+      { kind: "album", key, id, loading: true, data: null },
+    ]);
+    void getAlbumPage(id)
+      .then((data) => {
+        setEntityStack((stack) =>
+          stack.map((item) =>
+            item.key === key && item.kind === "album"
+              ? { ...item, loading: false, data }
+              : item,
+          ),
+        );
+      })
+      .catch((error) => {
+        setEntityStack((stack) =>
+          stack.map((item) =>
+            item.key === key && item.kind === "album"
+              ? {
+                  ...item,
+                  loading: false,
+                  error: typeof error === "string" ? error : "专辑页加载失败",
+                }
+              : item,
+          ),
+        );
+      });
+  };
+
+  const playAll = (tracks: Track[]) => {
+    const first = tracks[0];
+    if (first) playTrack(first, tracks);
+  };
+
   const navigate = (next: Page) => {
     setDetail(null);
     setDetailOrigin(null);
+    setEntityStack([]);
     setPage(next);
     setPaletteOpen(false);
     requestAnimationFrame(() => mainScroll?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }));
@@ -526,6 +622,7 @@ export default function App() {
     setLibrary(null);
     setDetail(null);
     setDetailOrigin(null);
+    setEntityStack([]);
     setLikedIds(new Set<string>());
     likedLoaded = false;
     setPlaying(false);
@@ -906,6 +1003,9 @@ export default function App() {
             <Show
               when={detail()}
               fallback={
+                <Show
+                  when={entity()}
+                  fallback={
                 <Switch>
                   <Match when={page() === "explore"}>
                     <Explore
@@ -932,6 +1032,8 @@ export default function App() {
                       account={account()}
                       likedTracks={likedPlaylist()?.tracks ?? []}
                       onOpenPlaylist={openPlaylist}
+                      onOpenArtist={openArtist}
+                      onOpenAlbum={openAlbum}
                       onPlayTrack={playTrack}
                     />
                   </Match>
@@ -982,6 +1084,21 @@ export default function App() {
                     />
                   </Match>
                 </Switch>
+                  }
+                >
+                  {(entry) => (
+                    <EntityPage
+                      entry={entry()}
+                      current={current()}
+                      playing={playing()}
+                      onBack={back}
+                      onPlayTrack={playTrack}
+                      onPlayAll={playAll}
+                      onOpenArtist={openArtist}
+                      onOpenAlbum={openAlbum}
+                    />
+                  )}
+                </Show>
               }
             >
               {(playlist) => (
@@ -1068,6 +1185,9 @@ export default function App() {
         onVolume={setVolume}
         onToggleLike={() => void toggleLike(current())}
         onPlayTrack={playTrack}
+        onOpenArtist={openArtist}
+        onOpenAlbum={openAlbum}
+        onToast={showToast}
         showTranslation={showTranslation()}
       />
 

@@ -69,10 +69,15 @@ pub fn run() {
             netease::home_feed,
             netease::library_data,
             netease::playlist_detail,
+            netease::artist_page,
+            netease::album_page,
             netease::search_music,
+            netease::search_kind,
             netease::lyric,
             netease::like_song,
             netease::playback_config,
+            open_sound_settings,
+            open_song_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Decro Desktop");
@@ -86,4 +91,55 @@ fn debug_log(level: String, target: String, message: String) {
 #[tauri::command]
 fn open_log_folder() -> Result<(), String> {
     logger::open_folder()
+}
+
+#[tauri::command]
+fn open_sound_settings() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", "ms-settings:sound"])
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("打开声音设置失败: {error}"))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("声音输出设置仅支持 Windows".to_string())
+    }
+}
+
+#[tauri::command]
+fn open_song_page(id: String) -> Result<(), String> {
+    if id.is_empty() || !id.chars().all(|character| character.is_ascii_digit()) {
+        return Err("歌曲 ID 无效".to_string());
+    }
+    open_url(&format!("https://music.163.com/#/song?id={id}"))
+}
+
+fn open_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("打开浏览器失败: {error}"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("打开浏览器失败: {error}"))
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("打开浏览器失败: {error}"))
+    }
 }

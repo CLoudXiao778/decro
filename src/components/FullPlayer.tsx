@@ -4,6 +4,7 @@ import { formatTime } from "../lib/format";
 import { CoverArt } from "./CoverArt";
 import { Icon } from "./Icon";
 import { VolumeBar } from "./ProgressBar";
+import { openSongPage, openSoundSettings } from "../lib/system";
 
 type Rect = { left: number; top: number; width: number; height: number; right: number; bottom: number };
 
@@ -104,6 +105,9 @@ export function FullPlayer(props: {
   onVolume: (value: number) => void;
   onToggleLike: () => void;
   onPlayTrack: (track: Track) => void;
+  onOpenArtist: (id: string) => void;
+  onOpenAlbum: (id: string) => void;
+  onToast: (message: string) => void;
   showTranslation: boolean;
 }) {
   const [visible, setVisible] = createSignal(false);
@@ -113,6 +117,7 @@ export function FullPlayer(props: {
   const [heroReady, setHeroReady] = createSignal(false);
   const [lyricsFocus, setLyricsFocus] = createSignal(false);
   const [queueOpen, setQueueOpen] = createSignal(false);
+  const [menuOpen, setMenuOpen] = createSignal(false);
   const [sourceDock, setSourceDock] = createSignal<Rect | null>(null);
   const [sourceCover, setSourceCover] = createSignal<Rect | null>(null);
 
@@ -327,12 +332,41 @@ export function FullPlayer(props: {
 
   const toggleLyrics = () => {
     hideClone();
+    setMenuOpen(false);
     setLyricsFocus((value) => !value);
   };
 
   const openLyrics = () => {
     hideClone();
+    setMenuOpen(false);
     setLyricsFocus(true);
+  };
+
+  const copySongInfo = () => {
+    const text = `${props.track.title} - ${props.track.artist}`;
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => props.onToast("已复制歌曲信息"))
+      .catch(() => props.onToast("复制失败，请检查剪贴板权限"));
+    setMenuOpen(false);
+  };
+
+  const openArtistPage = () => {
+    setMenuOpen(false);
+    if (props.track.artistId) props.onOpenArtist(props.track.artistId);
+    else props.onToast("这首歌曲没有歌手信息");
+  };
+
+  const openAlbumPage = () => {
+    setMenuOpen(false);
+    if (props.track.albumId) props.onOpenAlbum(props.track.albumId);
+    else props.onToast("这首歌曲没有专辑信息");
+  };
+
+  const openComments = () => {
+    void openSongPage(props.track.id).catch((error) =>
+      props.onToast(typeof error === "string" ? error : "打开网易云页面失败"),
+    );
   };
 
   const onKey = (event: KeyboardEvent) => {
@@ -349,6 +383,15 @@ export function FullPlayer(props: {
   };
 
   onMount(() => window.addEventListener("keydown", onKey));
+  onMount(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!menuOpen()) return;
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".player-more-wrap")) setMenuOpen(false);
+    };
+    window.addEventListener("pointerdown", closeMenu);
+    onCleanup(() => window.removeEventListener("pointerdown", closeMenu));
+  });
   onCleanup(() => {
     window.removeEventListener("keydown", onKey);
     cloneAnim?.cancel();
@@ -409,12 +452,18 @@ export function FullPlayer(props: {
             <span class="player-top__source">网易云音乐</span>
           </div>
           <div class="player-top__actions">
-            <span class="player-quality">{props.track.quality ?? "SQ"}</span>
-            <button class="icon-btn" title="输出设备" aria-label="输出设备">
+            <span class="player-quality" title="当前音质">{props.track.quality ?? "SQ"}</span>
+            <button
+              class="icon-btn"
+              title="打开 Windows 声音输出设置"
+              aria-label="声音输出设置"
+              onClick={() => {
+                void openSoundSettings().catch((error) =>
+                  props.onToast(typeof error === "string" ? error : "打开声音设置失败"),
+                );
+              }}
+            >
               <Icon name="cast" size={18} />
-            </button>
-            <button class="icon-btn" title="更多" aria-label="更多">
-              <Icon name="more" size={18} />
             </button>
           </div>
         </div>
@@ -459,14 +508,43 @@ export function FullPlayer(props: {
                 <button
                   class="player-head-button"
                   classList={{ "is-liked": props.liked }}
-                  aria-label={props.liked ? "取消喜爱" : "喜爱"}
+                  aria-label={props.liked ? "取消喜欢" : "添加到我喜欢"}
+                  title={props.liked ? "取消喜欢" : "添加到我喜欢"}
                   onClick={props.onToggleLike}
                 >
-                  <Icon name={props.liked ? "star-fill" : "star"} size={22} />
+                  <Icon name={props.liked ? "heart-fill" : "heart"} size={22} />
                 </button>
-                <button class="player-head-button" aria-label="更多" title="更多">
-                  <Icon name="more" size={22} />
-                </button>
+                <div class="player-more-wrap">
+                  <button
+                    class="player-head-button"
+                    aria-label="更多操作"
+                    title="更多操作"
+                    aria-expanded={menuOpen()}
+                    onClick={() => setMenuOpen((value) => !value)}
+                  >
+                    <Icon name="more" size={22} />
+                  </button>
+                  <Show when={menuOpen()}>
+                    <div class="player-menu" role="menu">
+                      <button role="menuitem" onClick={openArtistPage} disabled={!props.track.artistId}>
+                        <Icon name="user" size={16} />
+                        查看歌手
+                      </button>
+                      <button role="menuitem" onClick={openAlbumPage} disabled={!props.track.albumId}>
+                        <Icon name="disc" size={16} />
+                        查看专辑
+                      </button>
+                      <button role="menuitem" onClick={copySongInfo}>
+                        <Icon name="share" size={16} />
+                        复制歌曲信息
+                      </button>
+                      <button role="menuitem" onClick={openComments}>
+                        <Icon name="comment" size={16} />
+                        在网易云打开
+                      </button>
+                    </div>
+                  </Show>
+                </div>
               </div>
             </div>
 
@@ -503,7 +581,29 @@ export function FullPlayer(props: {
             <Show when={!lyricsFocus()}>
               <div class="player-cover-copy">
                 <p class="player-cover-copy__quote">
-                  “{props.track.album}” · {props.track.artist}
+                  <Show
+                    when={props.track.albumId}
+                    fallback={<span>“{props.track.album}”</span>}
+                  >
+                    <button
+                      class="player-cover-copy__link"
+                      onClick={() => props.onOpenAlbum(props.track.albumId!)}
+                    >
+                      “{props.track.album}”
+                    </button>
+                  </Show>
+                  <span> · </span>
+                  <Show
+                    when={props.track.artistId}
+                    fallback={<span>{props.track.artist}</span>}
+                  >
+                    <button
+                      class="player-cover-copy__link"
+                      onClick={() => props.onOpenArtist(props.track.artistId!)}
+                    >
+                      {props.track.artist}
+                    </button>
+                  </Show>
                 </p>
                 <div class="player-cover-copy__meta">
                   <span>{props.track.quality ?? "SQ"}</span>
@@ -529,7 +629,12 @@ export function FullPlayer(props: {
           </div>
           <div class="player-controls-row">
             <div class="player-controls-left">
-              <button class="player-round-button" aria-label="评论" title="评论">
+              <button
+                class="player-round-button"
+                aria-label="在网易云查看评论"
+                title="在网易云查看评论"
+                onClick={openComments}
+              >
                 <Icon name="comment" size={19} />
               </button>
               <button

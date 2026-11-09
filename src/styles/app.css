@@ -3668,3 +3668,60 @@ kbd {
   line-height: 1.6;
   text-align: center;
 }
+
+/* ── Full player actions menu ───────────────────────────────────────── */
+
+.player-head-actions {
+  position: relative;
+}
+.player-more-wrap {
+  position: relative;
+}
+.player-menu {
+  position: absolute;
+  top: 56px;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  min-width: 178px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(24, 22, 26, 0.92);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+}
+.player-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  text-align: left;
+}
+.player-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.player-menu button:disabled {
+  opacity: 0.34;
+}
+.player-cover-copy__link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.player-cover-copy__link:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

@@ -14,7 +14,9 @@ type TrackDto = {
   id: string;
   name: string;
   artist: string;
+  artistId: string;
   album: string;
+  albumId: string;
   durationMs: number;
   coverUrl: string;
   fee: number;
@@ -51,10 +53,72 @@ type LibraryDto = {
 type SearchDto = {
   songs: TrackDto[];
   playlists: PlaylistDto[];
+  artists: ArtistDto[];
+  albums: AlbumDto[];
+  lyrics: { track: TrackDto; lines: string[] }[];
+};
+
+export type SearchKind = "song" | "playlist" | "artist" | "album" | "lyric";
+export type SearchBundle = {
+  songs: Track[];
+  playlists: Playlist[];
+  artists: ArtistInfo[];
+  albums: AlbumInfo[];
+  lyrics: { track: Track; lines: string[] }[];
 };
 
 type LyricDto = {
   lines: LyricLine[];
+};
+
+type ArtistDto = {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  briefDesc: string;
+  aliases: string[];
+  albumCount: number;
+  songCount: number;
+};
+
+type AlbumDto = {
+  id: string;
+  name: string;
+  coverUrl: string;
+  publishTime: number;
+  size: number;
+  company: string;
+  kind: string;
+  artist: string;
+  artistId: string;
+};
+
+type ArtistPageDto = {
+  artist: ArtistDto;
+  songs: TrackDto[];
+  albums: AlbumDto[];
+};
+
+type AlbumPageDto = {
+  album: AlbumDto;
+  description: string;
+  artists: { id: string; name: string }[];
+  songs: TrackDto[];
+};
+
+export type ArtistInfo = ArtistDto;
+export type AlbumInfo = AlbumDto;
+export type ArtistRef = { id: string; name: string };
+export type ArtistPageData = {
+  artist: ArtistInfo;
+  songs: Track[];
+  albums: AlbumInfo[];
+};
+export type AlbumPageData = {
+  album: AlbumInfo;
+  description: string;
+  artists: ArtistRef[];
+  songs: Track[];
 };
 
 export type HomeBundle = {
@@ -107,7 +171,9 @@ export function toTrack(dto: TrackDto): Track {
     id: dto.id,
     title: dto.name || "未知歌曲",
     artist: dto.artist || "未知艺人",
+    artistId: dto.artistId || undefined,
     album: dto.album || "未知专辑",
+    albumId: dto.albumId || undefined,
     duration: formatTime(seconds),
     durationSec: seconds,
     palette: paletteFor(dto.id),
@@ -225,6 +291,136 @@ export async function getPlaylistDetail(id: string): Promise<Playlist> {
   }
   const data: PlaylistDto = await invoke("playlist_detail", { id });
   return toPlaylist(data);
+}
+
+export async function getArtistPage(id: string): Promise<ArtistPageData> {
+  if (!isTauri()) {
+    const name = mockTracks[0]?.artist ?? "未知歌手";
+    return {
+      artist: {
+        id,
+        name,
+        avatarUrl: "",
+        briefDesc: "浏览器预览：安装 Windows 客户端后会加载歌手简介、热门歌曲和专辑。",
+        aliases: [],
+        albumCount: 0,
+        songCount: mockTracks.length,
+      },
+      songs: mockTracks,
+      albums: [],
+    };
+  }
+  const data: ArtistPageDto = await invoke("artist_page", { id });
+  return {
+    artist: data.artist,
+    songs: data.songs.map(toTrack),
+    albums: data.albums,
+  };
+}
+
+export async function getAlbumPage(id: string): Promise<AlbumPageData> {
+  if (!isTauri()) {
+    const track = mockTracks[0];
+    return {
+      album: {
+        id,
+        name: track?.album ?? "未知专辑",
+        coverUrl: track?.coverUrl ?? "",
+        publishTime: 0,
+        size: mockTracks.length,
+        company: "",
+        kind: "专辑",
+        artist: track?.artist ?? "未知歌手",
+        artistId: track?.artistId ?? "",
+      },
+      description: "浏览器预览：安装 Windows 客户端后会加载专辑曲目。",
+      artists: track ? [{ id: track.artistId ?? "", name: track.artist }] : [],
+      songs: mockTracks,
+    };
+  }
+  const data: AlbumPageDto = await invoke("album_page", { id });
+  return {
+    album: data.album,
+    description: data.description,
+    artists: data.artists,
+    songs: data.songs.map(toTrack),
+  };
+}
+
+export async function searchByKind(keyword: string, kind: SearchKind): Promise<SearchBundle> {
+  const query = keyword.trim();
+  if (!query) {
+    return { songs: [], playlists: [], artists: [], albums: [], lyrics: [] };
+  }
+  if (!isTauri()) {
+    const lower = query.toLowerCase();
+    const tracks = mockTracks.filter((track) =>
+      `${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(lower),
+    );
+    const artists = [
+      ...new Map(
+        mockTracks.map((track) => [
+          track.artist,
+          {
+            id: track.artistId ?? `preview-artist-${track.artist}`,
+            name: track.artist,
+            avatarUrl: "",
+            briefDesc: "浏览器预览：安装 Windows 客户端后会加载歌手资料。",
+            aliases: [],
+            albumCount: new Set(mockTracks.map((item) => item.album)).size,
+            songCount: mockTracks.filter((item) => item.artist === track.artist).length,
+          },
+        ]),
+      ).values(),
+    ].filter((artist) => artist.name.toLowerCase().includes(lower));
+    const albums = [
+      ...new Map(
+        mockTracks.map((track) => [
+          track.album,
+          {
+            id: track.albumId ?? `preview-album-${track.album}`,
+            name: track.album,
+            coverUrl: track.coverUrl ?? "",
+            publishTime: 0,
+            size: mockTracks.filter((item) => item.album === track.album).length,
+            company: "",
+            kind: "专辑",
+            artist: track.artist,
+            artistId: track.artistId ?? "",
+          },
+        ]),
+      ).values(),
+    ].filter((album) => `${album.name} ${album.artist}`.toLowerCase().includes(lower));
+    return {
+      songs: kind === "song" ? tracks : [],
+      playlists:
+        kind === "playlist"
+          ? mockPlaylists.filter((playlist) =>
+              `${playlist.title} ${playlist.subtitle}`.toLowerCase().includes(lower),
+            )
+          : [],
+      artists: kind === "artist" ? artists : [],
+      albums: kind === "album" ? albums : [],
+      lyrics:
+        kind === "lyric"
+          ? tracks.map((track) => ({
+              track,
+              lines: track.lyrics
+                .map((line) => line.text)
+                .filter((text) => text.toLowerCase().includes(lower))
+                .slice(0, 3),
+            }))
+          : [],
+    };
+  }
+  const data: SearchDto = await invoke("search_kind", { kind, keyword: query });
+  return {
+    songs: data.songs.map(toTrack),
+    playlists: data.playlists.map(toPlaylist),
+    artists: data.artists,
+    albums: data.albums,
+    lyrics: data.lyrics.map((item) => ({ track: toTrack(item.track), lines: item.lines })),
+  };
 }
 
 export async function searchMusic(keyword: string): Promise<{ songs: Track[]; playlists: Playlist[] }> {
