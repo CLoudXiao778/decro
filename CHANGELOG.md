@@ -30,7 +30,8 @@
 
 ### Release
 
-- Windows 10/11 x64 NSIS 安装包 `v0.3.0`，由 GitHub Actions `windows-latest` 构建；未签名。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.3.0`，约 **2.49 MiB**（2,607,983 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`52876d9029e360bcee66eb6c3ad274fe92e62b00aad70059bb331942b621ea0b`。
 
 ## [0.2.1] - 2026-11-08
 
