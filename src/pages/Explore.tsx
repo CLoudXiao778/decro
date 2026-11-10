@@ -138,7 +138,7 @@ export function Explore(props: {
       <section class="source-section">
         <div class="source-section__head">
           <h2>最近播放</h2>
-          <button class="source-section__more" onClick={() => props.recent[0] && props.onPlayTrack(props.recent[0])}>
+          <button class="source-section__more" onClick={() => props.recent[0] && props.onPlayTrack(props.recent[0], props.recent)}>
             播放全部 <Icon name="play-fill" size={12} />
           </button>
         </div>

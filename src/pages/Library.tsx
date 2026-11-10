@@ -25,6 +25,8 @@ export function Library(props: {
   onPlayTrack: (track: Track, context?: Track[]) => void;
   onToggleLike: (track: Track) => void;
   onLogin: () => void;
+  error?: string;
+  onRetry: () => void;
 }) {
   const [recentExpanded, setRecentExpanded] = createSignal(false);
   const [playlistsExpanded, setPlaylistsExpanded] = createSignal(false);
@@ -112,6 +114,12 @@ export function Library(props: {
 
         <Show when={props.loading}>
           <div class="library-loading">正在同步资料库…</div>
+        </Show>
+        <Show when={props.error}>
+          <div class="library-error">
+            <span>资料库部分内容加载失败：{props.error}</span>
+            <button onClick={props.onRetry}>重试</button>
+          </div>
         </Show>
 
         <section class="source-section" id="library-recent">

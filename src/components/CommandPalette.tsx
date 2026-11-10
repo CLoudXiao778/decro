@@ -58,8 +58,20 @@ export function CommandPalette(props: {
 
   onCleanup(() => window.clearTimeout(searchTimer));
 
+  const actions: Result[] = [
+    { kind: "action", id: "explore", label: "前往探索", hint: "Alt 1" },
+    { kind: "action", id: "search", label: "前往搜索", hint: "Alt 2" },
+    { kind: "action", id: "library", label: "前往音乐库", hint: "Alt 3" },
+    { kind: "action", id: "settings", label: "打开设置", hint: "Ctrl ," },
+  ];
+
   const results = createMemo<Result[]>(() => {
     const q = query().trim().toLowerCase();
+    const actionMatches = q
+      ? actions.filter((action) =>
+          action.kind === "action" && action.label.toLowerCase().includes(q)
+        )
+      : [];
     if (!q) {
       return [
         ...props.tracks.slice(0, 4).map((item) => ({ kind: "track" as const, item })),
@@ -71,6 +83,7 @@ export function CommandPalette(props: {
       return [
         ...online.songs.slice(0, 5).map((item) => ({ kind: "track" as const, item })),
         ...online.playlists.slice(0, 4).map((item) => ({ kind: "playlist" as const, item })),
+        ...actionMatches,
       ];
     }
     const trackResults = props.tracks
@@ -81,15 +94,8 @@ export function CommandPalette(props: {
       .filter((p) => `${p.title} ${p.subtitle}`.toLowerCase().includes(q))
       .slice(0, 4)
       .map((item) => ({ kind: "playlist" as const, item }));
-    return [...trackResults, ...playlistResults];
+    return [...trackResults, ...playlistResults, ...actionMatches];
   });
-
-  const actions: Result[] = [
-    { kind: "action", id: "explore", label: "前往探索", hint: "Alt 1" },
-    { kind: "action", id: "search", label: "前往搜索", hint: "Alt 2" },
-    { kind: "action", id: "library", label: "前往音乐库", hint: "Alt 3" },
-    { kind: "action", id: "settings", label: "打开设置", hint: "Ctrl ," },
-  ];
 
   createEffect(() => {
     if (props.open) {
@@ -148,7 +154,7 @@ export function CommandPalette(props: {
               ref={input}
               class="command__input"
               value={query()}
-              placeholder="搜索歌曲、歌手、专辑，或输入命令…"
+              placeholder="搜索歌曲、歌单，或输入命令…"
               onInput={(event) => {
                 setQuery(event.currentTarget.value);
                 setSelected(0);
@@ -218,6 +224,14 @@ export function CommandPalette(props: {
                             <Icon name="music" size={14} /> 歌曲
                           </span>
                         </Show>
+                        <Show when={result.kind === "action"}>
+                          <span class="command__meta">
+                            <b>{(result as Extract<Result, { kind: "action" }>).label}</b>
+                          </span>
+                          <span class="command__hint">
+                            {(result as Extract<Result, { kind: "action" }>).hint}
+                          </span>
+                        </Show>
                         <Show when={result.kind === "playlist"}>
                           <span class="command__thumb">
                             <CoverArt
@@ -276,7 +290,7 @@ export function CommandPalette(props: {
               <div class="command__empty">
                 <Icon name="search" size={24} />
                 <p>没有找到跟「{query()}」有关的结果</p>
-                <span>试试歌曲名、歌手名，或者一张专辑。</span>
+                <span>试试歌曲名、歌单名，或输入命令。</span>
               </div>
             </Show>
           </div>

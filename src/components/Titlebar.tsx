@@ -6,10 +6,8 @@ import type { Page } from "../App";
 export function Titlebar(props: {
   theme: "dark" | "light";
   page: Page;
-  railOpen: boolean;
   canGoBack: boolean;
   onToggleTheme: () => void;
-  onToggleRail: () => void;
   onOpenSearch: () => void;
   account: Account | null;
   onLogin: () => void;
@@ -63,7 +61,7 @@ export function Titlebar(props: {
 
       <button class="search-trigger" onClick={props.onOpenSearch} aria-label="搜索">
         <Icon name="search" size={15} />
-        <span>搜索歌曲、歌手、专辑</span>
+        <span>搜索歌曲、歌单或命令</span>
         <kbd>Ctrl K</kbd>
       </button>
 
@@ -83,14 +81,6 @@ export function Titlebar(props: {
         </button>
         <button class="icon-btn icon-btn--sm" title="切换主题" aria-label="切换主题" onClick={props.onToggleTheme}>
           <Icon name={props.theme === "dark" ? "sun" : "moon"} size={17} />
-        </button>
-        <button
-          class="icon-btn icon-btn--sm"
-          title={props.railOpen ? "收起正在播放" : "展开正在播放"}
-          aria-label="正在播放侧栏"
-          onClick={props.onToggleRail}
-        >
-          <Icon name="waves" size={17} />
         </button>
         <button class="icon-btn icon-btn--sm" title="设置" aria-label="设置" onClick={props.onSettings}>
           <Icon name="settings" size={17} />

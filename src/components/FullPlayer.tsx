@@ -421,7 +421,13 @@ export function FullPlayer(props: {
     else props.onToast("这首歌曲没有专辑信息");
   };
 
+  const canOpenSong = () => /^\d+$/.test(props.track.id);
+
   const openComments = () => {
+    if (!canOpenSong()) {
+      props.onToast("示例歌曲无法打开网易云页面");
+      return;
+    }
     setMenuOpen(false);
     void openSongPage(props.track.id).catch((error) =>
       props.onToast(typeof error === "string" ? error : "打开网易云页面失败"),
@@ -552,7 +558,7 @@ export function FullPlayer(props: {
             <span class="player-top__source">网易云音乐</span>
           </div>
           <div class="player-top__actions">
-            <span class="player-quality" title="当前音质">{props.track.quality ?? "SQ"}</span>
+            <span class="player-quality" title="歌曲标称音质；实际档位以网易云可用音源为准">{props.track.quality ?? "SQ"}</span>
             <button
               class="icon-btn"
               title="打开 Windows 声音输出设置"
@@ -656,7 +662,12 @@ export function FullPlayer(props: {
                         <Icon name="share" size={16} />
                         复制歌曲信息
                       </button>
-                      <button role="menuitem" onClick={openComments}>
+                      <button
+                        role="menuitem"
+                        onClick={openComments}
+                        disabled={!canOpenSong()}
+                        title={canOpenSong() ? "" : "示例歌曲没有网易云页面"}
+                      >
                         <Icon name="comment" size={16} />
                         在网易云打开
                       </button>
@@ -759,7 +770,8 @@ export function FullPlayer(props: {
               <button
                 class="player-round-button"
                 aria-label="在网易云查看评论"
-                title="在网易云查看评论"
+                title={canOpenSong() ? "在网易云查看评论" : "示例歌曲没有网易云页面"}
+                disabled={!canOpenSong()}
                 onClick={openComments}
               >
                 <Icon name="comment" size={19} />

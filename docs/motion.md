@@ -100,7 +100,6 @@ Cirro 的动效不是装饰，而是“同一个物体在连续变形”的叙�
 - 页面切换：`pageIn` 220ms，`opacity 0→1` + `translateY(8px→0)`。
 - 详情页：同一套，但内容区有封面糊底随页面进入淡入。
 - 命令面板：240ms，`opacity + translateY(-8px) + scale(.985)`。
-- 右侧播放栏出现：260ms，`opacity + translateX(12px)`。
 - 不支持 View Transitions 时不需要 polyfill；页面转场本身就是 CSS 动画。
 
 ## 6. 微交互

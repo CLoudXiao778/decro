@@ -34,6 +34,7 @@ pub struct PlaylistDto {
     pub creator: String,
     pub special_type: i64,
     pub update_time: u64,
+    pub subscribed: bool,
     pub tracks: Vec<TrackDto>,
 }
 
@@ -53,6 +54,8 @@ pub struct LibraryData {
     pub playlists: Vec<PlaylistDto>,
     pub recent: Vec<TrackDto>,
     pub liked: Option<PlaylistDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -466,6 +469,10 @@ pub fn normalize_playlist(value: &Value) -> Option<PlaylistDto> {
         .and_then(Value::as_i64)
         .unwrap_or(0);
     let update_time = value.get("updateTime").and_then(Value::as_u64).unwrap_or(0);
+    let subscribed = value
+        .get("subscribed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     Some(PlaylistDto {
         id,
@@ -481,6 +488,7 @@ pub fn normalize_playlist(value: &Value) -> Option<PlaylistDto> {
         creator,
         special_type,
         update_time,
+        subscribed,
         tracks,
     })
 }
@@ -756,14 +764,21 @@ pub async fn library_data(state: State<'_, AppState>) -> Result<LibraryData, Str
         get_json(&state, "/api/v1/play/record", &recent_query),
     );
 
-    let playlists = playlists_result
-        .ok()
-        .map(|value| playlists_from(value.get("playlist")))
-        .unwrap_or_default();
-    let recent = recent_result
-        .ok()
-        .map(|value| parse_recent(&value))
-        .unwrap_or_default();
+    let mut errors = Vec::new();
+    let playlists = match playlists_result {
+        Ok(value) => playlists_from(value.get("playlist")),
+        Err(error) => {
+            errors.push(format!("歌单：{error}"));
+            Vec::new()
+        }
+    };
+    let recent = match recent_result {
+        Ok(value) => parse_recent(&value),
+        Err(error) => {
+            errors.push(format!("最近播放：{error}"));
+            Vec::new()
+        }
+    };
 
     let liked_summary = playlists
         .iter()
@@ -776,7 +791,13 @@ pub async fn library_data(state: State<'_, AppState>) -> Result<LibraryData, Str
         .cloned();
 
     let liked = match liked_summary {
-        Some(summary) => fetch_playlist_detail(&state, &summary.id).await.ok(),
+        Some(summary) => match fetch_playlist_detail(&state, &summary.id).await {
+            Ok(playlist) => Some(playlist),
+            Err(error) => {
+                errors.push(format!("我喜欢的音乐：{error}"));
+                None
+            }
+        },
         None => None,
     };
 
@@ -784,7 +805,37 @@ pub async fn library_data(state: State<'_, AppState>) -> Result<LibraryData, Str
         playlists,
         recent,
         liked,
+        error: if errors.is_empty() {
+            None
+        } else {
+            Some(errors.join("；"))
+        },
     })
+}
+
+#[tauri::command]
+pub async fn create_playlist(name: String) -> Result<String, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("歌单名称不能为空".to_string());
+    }
+    if name.chars().count() > 40 {
+        return Err("歌单名称过长".to_string());
+    }
+    tokio::task::spawn_blocking(move || crate::libnetease::playlist_create(&name))
+        .await
+        .map_err(|error| format!("新建歌单线程失败: {error}"))?
+}
+
+#[tauri::command]
+pub async fn subscribe_playlist(id: String, subscribe: bool) -> Result<(), String> {
+    let id = id.trim().to_string();
+    if id.is_empty() || !id.chars().all(|character| character.is_ascii_digit()) {
+        return Err("歌单 ID 无效".to_string());
+    }
+    tokio::task::spawn_blocking(move || crate::libnetease::playlist_subscribe(&id, subscribe))
+        .await
+        .map_err(|error| format!("收藏歌单线程失败: {error}"))?
 }
 
 #[tauri::command]
@@ -1073,13 +1124,24 @@ pub fn playback_config(state: State<'_, AppState>) -> PlaybackConfig {
 /// Resolve a playable CDN URL through libnetease's weapi/eapi implementation.
 /// The original Cirro library adds the `os=ios`/`appver` cookie pair that the
 /// player URL endpoint requires; a plain web request gets `url: null`.
-pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, String> {
+pub async fn resolve_song_url(
+    state: &AppState,
+    id: &str,
+    requested_level: Option<&str>,
+) -> Result<String, String> {
     if id.is_empty() || !id.chars().all(|ch| ch.is_ascii_digit()) {
         return Err("无效的歌曲 ID".to_string());
     }
+    let requested_level = requested_level.filter(|level| {
+        matches!(
+            *level,
+            "standard" | "higher" | "exhigh" | "lossless" | "hires"
+        )
+    });
+    let cache_key = format!("{}:{id}", requested_level.unwrap_or("auto"));
 
     if let Ok(cache) = state.url_cache.lock() {
-        if let Some((url, at)) = cache.get(id) {
+        if let Some((url, at)) = cache.get(&cache_key) {
             if at.elapsed() < Duration::from_secs(240) {
                 return Ok(url.clone());
             }
@@ -1087,9 +1149,19 @@ pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, Stri
     }
 
     let id_owned = id.to_string();
+    let requested = requested_level.map(str::to_string);
     let url = tokio::task::spawn_blocking(move || {
+        let mut levels = Vec::new();
+        if let Some(level) = requested {
+            levels.push(level);
+        }
+        for fallback in ["exhigh", "standard"] {
+            if !levels.iter().any(|level| level == fallback) {
+                levels.push(fallback.to_string());
+            }
+        }
         let mut last_error = String::new();
-        for level in ["standard", "exhigh"] {
+        for level in levels.iter().map(String::as_str) {
             match crate::libnetease::song_url(&id_owned, level) {
                 Ok(url) => return Ok(url),
                 Err(error) => {
@@ -1139,7 +1211,7 @@ pub async fn resolve_song_url(state: &AppState, id: &str) -> Result<String, Stri
         ),
     );
     if let Ok(mut cache) = state.url_cache.lock() {
-        cache.insert(id.to_string(), (url.clone(), Instant::now()));
+        cache.insert(cache_key, (url.clone(), Instant::now()));
     }
     Ok(url)
 }

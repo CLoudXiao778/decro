@@ -69,6 +69,8 @@ pub fn run() {
             netease::home_feed,
             netease::library_data,
             netease::playlist_detail,
+            netease::create_playlist,
+            netease::subscribe_playlist,
             netease::artist_page,
             netease::album_page,
             netease::search_music,
@@ -78,6 +80,7 @@ pub fn run() {
             netease::playback_config,
             open_sound_settings,
             open_song_page,
+            open_playlist_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Decro Desktop");
@@ -115,6 +118,14 @@ fn open_song_page(id: String) -> Result<(), String> {
         return Err("歌曲 ID 无效".to_string());
     }
     open_url(&format!("https://music.163.com/#/song?id={id}"))
+}
+
+#[tauri::command]
+fn open_playlist_page(id: String) -> Result<(), String> {
+    if id.is_empty() || !id.chars().all(|character| character.is_ascii_digit()) {
+        return Err("歌单 ID 无效".to_string());
+    }
+    open_url(&format!("https://music.163.com/#/playlist?id={id}"))
 }
 
 fn open_url(url: &str) -> Result<(), String> {

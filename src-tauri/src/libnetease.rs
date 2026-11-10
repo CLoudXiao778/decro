@@ -67,6 +67,8 @@ extern "C" {
     fn ne_song_url_v1(id: *const c_char, level: *const c_char) -> *mut NeResp;
     fn ne_song_like(track_id: *const c_char, like: *const c_char) -> *mut NeResp;
     fn ne_album_detail(id: *const c_char) -> *mut NeResp;
+    fn ne_playlist_subscribe(id: *const c_char, t: *const c_char) -> *mut NeResp;
+    fn ne_playlist_create(name: *const c_char, privacy: *const c_char) -> *mut NeResp;
     fn ne_resp_free(resp: *mut NeResp);
     fn decro_alloc(size: usize) -> *mut c_void;
     fn decro_free(ptr: *mut c_void);
@@ -217,6 +219,42 @@ fn response_json(resp: *mut NeResp, target: &str) -> Result<Value, String> {
         }
     }
     Ok(json)
+}
+
+pub fn playlist_subscribe(id: &str, subscribe: bool) -> Result<(), String> {
+    init();
+    let _guard = lock();
+    let resp = unsafe {
+        ne_playlist_subscribe(
+            cstring(id).as_ptr(),
+            cstring(if subscribe { "1" } else { "0" }).as_ptr(),
+        )
+    };
+    response_json(resp, "歌单收藏")?;
+    crate::logger::log(
+        "info",
+        "playlist",
+        &format!("id={id} subscribed={subscribe}"),
+    );
+    Ok(())
+}
+
+pub fn playlist_create(name: &str) -> Result<String, String> {
+    init();
+    let _guard = lock();
+    let resp = unsafe { ne_playlist_create(cstring(name).as_ptr(), cstring("0").as_ptr()) };
+    let json = response_json(resp, "新建歌单")?;
+    let id = json
+        .get("playlistId")
+        .or_else(|| json.get("id"))
+        .and_then(|value| match value {
+            Value::String(text) => Some(text.clone()),
+            Value::Number(number) => Some(number.to_string()),
+            _ => None,
+        })
+        .ok_or_else(|| "网易云没有返回新歌单 ID".to_string())?;
+    crate::logger::log("info", "playlist", &format!("created id={id}"));
+    Ok(id)
 }
 
 pub fn album_detail(id: &str) -> Result<Value, String> {

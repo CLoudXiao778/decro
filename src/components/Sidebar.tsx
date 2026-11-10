@@ -7,7 +7,7 @@ import type { Account } from "../lib/auth";
 
 const navItems: { page: Page; label: string; icon: IconName }[] = [
   { page: "explore", label: "主页", icon: "home" },
-  { page: "podcast", label: "分类", icon: "grid" },
+  { page: "podcast", label: "推荐", icon: "grid" },
   { page: "library", label: "资料库", icon: "library" },
   { page: "search", label: "搜索", icon: "search" },
 ];
@@ -27,6 +27,8 @@ export function Sidebar(props: {
   onOpenDaily: () => void;
   onOpenRecent: () => void;
   onSettings: () => void;
+  onCreatePlaylist: () => void;
+  onAddPlaylist: () => void;
 }) {
   return (
     <aside class="sidebar" classList={{ "is-collapsed": props.collapsed }}>
@@ -55,7 +57,12 @@ export function Sidebar(props: {
       <div class="sidebar__section">
         <div class="sidebar__section-title">
           <span>我的音乐</span>
-          <button class="icon-btn icon-btn--tiny" aria-label="新建歌单" title="新建歌单">
+          <button
+            class="icon-btn icon-btn--tiny"
+            aria-label="新建歌单"
+            title="新建歌单"
+            onClick={props.onCreatePlaylist}
+          >
             <Icon name="plus" size={14} />
           </button>
         </div>
@@ -84,7 +91,12 @@ export function Sidebar(props: {
       <div class="sidebar__section sidebar__section--playlists">
         <div class="sidebar__section-title">
           <span>歌单</span>
-          <button class="icon-btn icon-btn--tiny" aria-label="添加歌单" title="添加歌单">
+          <button
+            class="icon-btn icon-btn--tiny"
+            aria-label="添加歌单"
+            title="添加歌单"
+            onClick={props.onAddPlaylist}
+          >
             <Icon name="plus" size={14} />
           </button>
         </div>

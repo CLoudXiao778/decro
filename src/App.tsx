@@ -3,7 +3,6 @@ import { CommandPalette } from "./components/CommandPalette";
 import { FullPlayer } from "./components/FullPlayer";
 import { Icon } from "./components/Icon";
 import { LoginModal } from "./components/LoginModal";
-import { NowPlayingRail, type RailTab } from "./components/NowPlayingRail";
 import { PlayerDock } from "./components/PlayerDock";
 import { Sidebar } from "./components/Sidebar";
 import { Splash } from "./components/Splash";
@@ -12,6 +11,7 @@ import type { Playlist, Track } from "./data/mock";
 import { tracks as mockTracks } from "./data/mock";
 import { getAuthStatus, isTauri, logout as apiLogout, type Account } from "./lib/auth";
 import {
+  createPlaylist as apiCreatePlaylist,
   getAlbumPage,
   getArtistPage,
   getHomeFeed,
@@ -22,7 +22,9 @@ import {
   isRealTrack,
   likeSong,
   playlistFromTracks,
+  streamLevel,
   streamUrl,
+  subscribePlaylist,
   type HomeBundle,
   type LibraryBundle,
   type PlaybackConfig,
@@ -89,8 +91,6 @@ export default function App() {
   const [account, setAccount] = createSignal<Account | null>(null);
   const [loginOpen, setLoginOpen] = createSignal(false);
   const [navCollapsed, setNavCollapsed] = createSignal(true);
-  const [railOpen, setRailOpen] = createSignal(false);
-  const [railTab, setRailTab] = createSignal<RailTab>("lyrics");
   const [playerOpen, setPlayerOpen] = createSignal(false);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [splash, setSplash] = createSignal(!new URLSearchParams(window.location.search).has("nosplash"));
@@ -362,6 +362,63 @@ export default function App() {
     }
   };
 
+  const handleCreatePlaylist = () => {
+    if (!account()) {
+      setLoginOpen(true);
+      return;
+    }
+    const name = window.prompt("新歌单名称")?.trim();
+    if (!name) return;
+    void apiCreatePlaylist(name)
+      .then(() => {
+        showToast(`已创建歌单「${name}」`);
+        void loadCatalog();
+      })
+      .catch((error) =>
+        showToast(typeof error === "string" ? error : "新建歌单失败"),
+      );
+  };
+
+  const handleAddPlaylist = () => {
+    if (!account()) {
+      setLoginOpen(true);
+      return;
+    }
+    const raw = window.prompt("输入歌单 ID 或歌单链接")?.trim();
+    if (!raw) return;
+    const linked = raw.match(/[?&#]id=(\d+)/) ?? raw.match(/playlist\/(\d+)/);
+    const id = linked?.[1] ?? raw.trim();
+    if (!/^\d+$/.test(id)) {
+      showToast("请输入有效的歌单 ID 或链接");
+      return;
+    }
+    void subscribePlaylist(id, true)
+      .then(() => {
+        showToast("已添加歌单到资料库");
+        void loadCatalog();
+      })
+      .catch((error) =>
+        showToast(typeof error === "string" ? error : "添加歌单失败"),
+      );
+  };
+
+  const setPlaylistSubscribed = async (playlist: Playlist, subscribe: boolean) => {
+    try {
+      await subscribePlaylist(playlist.id, subscribe);
+      setDetail((current) =>
+        current && current.id === playlist.id
+          ? { ...current, subscribed: subscribe }
+          : current,
+      );
+      showToast(subscribe ? "已收藏歌单" : "已取消收藏");
+      void loadCatalog();
+      return true;
+    } catch (error) {
+      showToast(typeof error === "string" ? error : "收藏歌单失败");
+      return false;
+    }
+  };
+
   const openPlaylist = (playlist: Playlist, origin?: HTMLElement) => {
     try {
       const key = "decro.playlistUsage";
@@ -415,7 +472,7 @@ export default function App() {
     void loadLyrics(track);
   };
 
-  const playPlaylist = async (playlist: Playlist) => {
+  const playPlaylist = async (playlist: Playlist, shuffle = false) => {
     const request = ++playRequest;
     let target = playlist;
     let list = target.tracks ?? [];
@@ -436,6 +493,13 @@ export default function App() {
     if (list.length === 0) {
       showToast("这个歌单暂时没有可播放的歌曲");
       return;
+    }
+    if (shuffle && list.length > 1) {
+      list = [...list];
+      for (let index = list.length - 1; index > 0; index -= 1) {
+        const swap = Math.floor(Math.random() * (index + 1));
+        [list[index], list[swap]] = [list[swap], list[index]];
+      }
     }
     userStarted = true;
     setQueue(list);
@@ -483,14 +547,28 @@ export default function App() {
   const stepTrack = (delta: number) => {
     playRequest += 1;
     const list = queue();
-    if (list.length === 0) return;
+    if (list.length === 0) {
+      showToast("播放队列为空");
+      return;
+    }
     const index = list.findIndex((track) => track.id === current().id);
     const next = list[(index + delta + list.length) % list.length] ?? list[0];
+    const restart = next.id === current().id;
     userStarted = true;
     setCurrent(next);
     setProgress(0);
     setPlaying(true);
     void loadLyrics(next);
+    if (restart) {
+      if (audio && playback() && isRealTrack(next)) {
+        try {
+          audio.currentTime = 0;
+        } catch {
+          /* source not ready; canplay will play */
+        }
+        if (audio.paused) attemptPlay();
+      }
+    }
   };
 
   const nextTrack = () => stepTrack(1);
@@ -555,7 +633,7 @@ export default function App() {
         id: current().id,
         base: playback()!.base,
       });
-      audio.src = streamUrl(playback()!, current().id);
+      audio.src = streamUrl(playback()!, current().id, streamLevel(current().quality));
       audio.load();
     }
     if (audio && !audio.src && isRealTrack(current())) {
@@ -835,7 +913,7 @@ export default function App() {
         id: current().id,
         base: playback()!.base,
       });
-      audio.src = streamUrl(playback()!, current().id);
+      audio.src = streamUrl(playback()!, current().id, streamLevel(current().quality));
       audio.load();
       if (playing()) attemptPlay();
     },
@@ -965,7 +1043,6 @@ export default function App() {
         seek(progress() - 5);
       } else if (event.key.toLowerCase() === "l") {
         setPlayerOpen(true);
-        setRailTab("lyrics");
       } else if (event.key.toLowerCase() === "f") {
         void toggleLike(current());
       } else if (event.key.toLowerCase() === "m") {
@@ -996,7 +1073,6 @@ export default function App() {
       class="app"
       classList={{
         "nav-collapsed": navCollapsed(),
-        "rail-hidden": !railOpen(),
         "player-open": playerOpen(),
       }}
       style={{
@@ -1014,10 +1090,8 @@ export default function App() {
       <Titlebar
         theme={theme()}
         page={page()}
-        railOpen={railOpen()}
         canGoBack={canGoBack()}
         onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
-        onToggleRail={() => setRailOpen((value) => !value)}
         onOpenSearch={() => setPaletteOpen(true)}
         account={account()}
         onLogin={() => setLoginOpen(true)}
@@ -1042,6 +1116,8 @@ export default function App() {
           onOpenDaily={openDaily}
           onOpenRecent={openRecent}
           onSettings={() => navigate("settings")}
+          onCreatePlaylist={handleCreatePlaylist}
+          onAddPlaylist={handleAddPlaylist}
         />
 
         <main class="main">
@@ -1094,6 +1170,8 @@ export default function App() {
                       onPlayTrack={playTrack}
                       onToggleLike={(track) => void toggleLike(track)}
                       onLogin={() => setLoginOpen(true)}
+                      error={library()?.error}
+                      onRetry={() => void loadCatalog()}
                     />
                   </Match>
                   <Match when={page() === "podcast"}>
@@ -1141,6 +1219,8 @@ export default function App() {
                   onPlayPlaylist={playPlaylist}
                   onPlayTrack={playTrack}
                   onToggleLike={(track) => void toggleLike(track)}
+                  onSetPlaylistSubscribed={setPlaylistSubscribed}
+                  onToast={showToast}
                   onBack={back}
                   onOpenPlaylist={openPlaylist}
                   />
@@ -1173,6 +1253,8 @@ export default function App() {
                   onPlayPlaylist={playPlaylist}
                   onPlayTrack={playTrack}
                   onToggleLike={(track) => void toggleLike(track)}
+                  onSetPlaylistSubscribed={setPlaylistSubscribed}
+                  onToast={showToast}
                   onBack={back}
                   onOpenPlaylist={openPlaylist}
                   />
@@ -1182,28 +1264,6 @@ export default function App() {
           </div>
         </main>
 
-        <Show when={railOpen()}>
-          <NowPlayingRail
-            track={current()}
-            queue={queue()}
-            progress={progress()}
-            playing={playing()}
-            liked={isLiked(current())}
-            tab={railTab()}
-            onTab={setRailTab}
-            onTogglePlay={togglePlay}
-            onToggleLike={() => void toggleLike(current())}
-            onOpenPlayer={() => setPlayerOpen(true)}
-            onOpenQueue={() => {
-              setRailTab("queue");
-              setPlayerOpen(true);
-            }}
-            onPlayTrack={playTrack}
-            onPrev={prevTrack}
-            onNext={nextTrack}
-            showTranslation={showTranslation()}
-          />
-        </Show>
       </div>
 
       <PlayerDock
@@ -1220,14 +1280,8 @@ export default function App() {
         onVolume={setVolume}
         onToggleLike={() => void toggleLike(current())}
         onOpenPlayer={() => setPlayerOpen(true)}
-        onOpenQueue={() => {
-          setRailTab("queue");
-          setPlayerOpen(true);
-        }}
-        onOpenLyrics={() => {
-          setRailTab("lyrics");
-          setPlayerOpen(true);
-        }}
+        onOpenQueue={() => setPlayerOpen(true)}
+        onOpenLyrics={() => setPlayerOpen(true)}
       />
 
       <FullPlayer

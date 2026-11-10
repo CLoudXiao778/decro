@@ -4153,3 +4153,68 @@ button.settings-source-row:hover {
 .shelf.shelf--wrap.shelf--tall {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
+
+.library-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+  color: var(--on-surface-2);
+  font-size: 12px;
+}
+.library-error button {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  color: var(--on-surface);
+  font-size: 11px;
+}
+
+.detail-more-menu,
+.detail-track-menu {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  min-width: 170px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 13px;
+  background: rgba(24, 22, 26, 0.94);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(16px);
+}
+.detail-more-menu {
+  top: 54px;
+  right: 0;
+}
+.detail-track-menu {
+  position: fixed;
+}
+.detail-more-menu button,
+.detail-track-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  text-align: left;
+}
+.detail-more-menu button:hover,
+.detail-track-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.detail-track__more {
+  cursor: pointer;
+}

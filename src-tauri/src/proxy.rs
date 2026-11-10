@@ -58,7 +58,8 @@ async fn stream(
         .unwrap_or("-");
     crate::logger::log("debug", "proxy", &format!("id={id} range={range}"));
 
-    let upstream_url = match netease::resolve_song_url(&state, &id).await {
+    let level = params.get("level").map(String::as_str);
+    let upstream_url = match netease::resolve_song_url(&state, &id, level).await {
         Ok(url) => url,
         Err(error) => {
             crate::logger::log("error", "proxy", &format!("id={id} resolve: {error}"));

@@ -34,6 +34,7 @@ type PlaylistDto = {
   creator: string;
   specialType: number;
   updateTime: number;
+  subscribed: boolean;
   tracks: TrackDto[];
 };
 
@@ -49,6 +50,7 @@ type LibraryDto = {
   playlists: PlaylistDto[];
   recent: TrackDto[];
   liked: PlaylistDto | null;
+  error?: string;
 };
 
 type SearchDto = {
@@ -136,6 +138,7 @@ export type LibraryBundle = {
   playlists: Playlist[];
   recent: Track[];
   liked: Playlist | null;
+  error?: string;
 };
 
 export type PlaybackConfig = {
@@ -207,6 +210,7 @@ export function toPlaylist(dto: PlaylistDto): Playlist {
     playCount: dto.playCount,
     updateTime: dto.updateTime,
     specialType: dto.specialType,
+    subscribed: dto.subscribed,
     trackCount: dto.trackCount,
     tracks,
   };
@@ -285,7 +289,18 @@ export async function getLibraryData(): Promise<LibraryBundle> {
     playlists: data.playlists.map(toPlaylist),
     recent: data.recent.map(toTrack),
     liked: data.liked ? toPlaylist(data.liked) : null,
+    error: data.error,
   };
+}
+
+export async function createPlaylist(name: string): Promise<string> {
+  if (!isTauri()) return `preview-${Date.now()}`;
+  return invoke("create_playlist", { name });
+}
+
+export async function subscribePlaylist(id: string, subscribe: boolean): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("subscribe_playlist", { id, subscribe });
 }
 
 export async function getPlaylistDetail(id: string): Promise<Playlist> {
@@ -465,8 +480,17 @@ export async function getPlaybackConfig(): Promise<PlaybackConfig> {
   return invoke<PlaybackConfig>("playback_config");
 }
 
-export function streamUrl(config: PlaybackConfig, id: string): string {
-  return `${config.base}/stream/${encodeURIComponent(id)}?token=${encodeURIComponent(config.token)}`;
+export function streamLevel(quality?: string): string {
+  if (quality === "Hi-Res") return "hires";
+  if (quality === "SQ") return "lossless";
+  if (quality === "HQ") return "higher";
+  return "standard";
+}
+
+export function streamUrl(config: PlaybackConfig, id: string, level?: string): string {
+  const query = new URLSearchParams({ token: config.token });
+  if (level) query.set("level", level);
+  return `${config.base}/stream/${encodeURIComponent(id)}?${query.toString()}`;
 }
 
 export function isRealTrack(track: Track): boolean {

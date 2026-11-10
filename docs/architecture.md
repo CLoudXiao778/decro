@@ -45,7 +45,6 @@ src/
     Titlebar.tsx          # 自定义标题栏 + 账号入口
     Sidebar.tsx           # 左侧导航 + 在线歌单 + 账号入口
     PlayerDock.tsx        # 底部胶囊
-    NowPlayingRail.tsx    # 右侧播放栏
     FullPlayer.tsx        # 沉浸播放页 + 共享封面 + 队列抽屉
     CoverArt.tsx          # 真实封面 + 生成式回退
     CommandPalette.tsx    # 最近播放/歌单快捷跳转

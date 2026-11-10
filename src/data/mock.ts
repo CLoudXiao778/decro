@@ -38,6 +38,7 @@ export type Playlist = {
   playCount?: number;
   updateTime?: number;
   specialType?: number;
+  subscribed?: boolean;
   trackCount?: number;
   tracks?: Track[];
 };

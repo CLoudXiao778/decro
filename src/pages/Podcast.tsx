@@ -10,7 +10,7 @@ export function PodcastPage(props: {
   return (
     <div class="page page--categories">
       <header class="source-head">
-        <h1 class="source-title">分类</h1>
+        <h1 class="source-title">推荐</h1>
       </header>
 
       <Show
