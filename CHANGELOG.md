@@ -53,6 +53,8 @@
 ### Release
 
 - 版本号 0.5.4；其余功能与 0.5.3 相同。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.5.4`，约 **2.51 MiB**（2,632,899 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256：`260c24eba3af8ca3d18caa29e58f2158d70b96b4264f6676e8e63ffa5468c7c1`。
 
 ## [0.5.3] - 2026-11-09
 
