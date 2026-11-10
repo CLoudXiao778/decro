@@ -131,7 +131,7 @@ src-tauri/
 | 账号 | `GET music.163.com/api/nuser/account/get` |
 | 首页推荐 | `/api/personalized/playlist`、`/api/personalized/newsong` |
 | 每日推荐 | `/api/v3/discovery/recommend/songs` |
-| 最近播放 | `/api/v1/play/record` |
+| 最近播放 | 读取 `/api/v1/play/record`；播放时向 `clientlog.music.163.com` eapi 上报 `startplay` |
 | 用户歌单 | `/api/user/playlist` |
 | 歌单详情 | `/api/v6/playlist/detail` |
 | 搜索 | `/api/cloudsearch/pc`（歌曲/歌单） |

@@ -1114,6 +1114,20 @@ pub async fn like_song(
 }
 
 #[tauri::command]
+pub async fn report_play_start(
+    state: State<'_, AppState>,
+    id: String,
+    source_id: String,
+) -> Result<(), String> {
+    if state.account().is_none() {
+        return Err("请先登录网易云".to_string());
+    }
+    tokio::task::spawn_blocking(move || crate::libnetease::report_play_start(&id, &source_id))
+        .await
+        .map_err(|error| format!("播放上报线程失败: {error}"))?
+}
+
+#[tauri::command]
 pub fn playback_config(state: State<'_, AppState>) -> PlaybackConfig {
     PlaybackConfig {
         base: state.proxy.base.clone(),

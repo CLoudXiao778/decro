@@ -22,6 +22,7 @@ import {
   isRealTrack,
   likeSong,
   playlistFromTracks,
+  reportPlayStart,
   streamLevel,
   streamUrl,
   subscribePlaylist,
@@ -125,6 +126,8 @@ export default function App() {
   let lyricRequest = 0;
   let pendingSeek: number | null = null;
   let audioFailed = false;
+  let lastReportedPlayId = "";
+  let playSourceId = "0";
   let playRequest = 0;
   let entityKey = 0;
   const entityScrollStack: number[] = [];
@@ -148,6 +151,28 @@ export default function App() {
   const currentLevel = () => {
     const selected = currentQuality();
     return selected === "auto" ? streamLevel(current().quality) : selected;
+  };
+
+  const rememberRecent = (track: Track) => {
+    const merge = (list: Track[]) =>
+      [track, ...list.filter((item) => item.id !== track.id)].slice(0, 60);
+    setHome((value) => (value ? { ...value, recent: merge(value.recent) } : value));
+    setLibrary((value) => (value ? { ...value, recent: merge(value.recent) } : value));
+  };
+
+  const reportCurrentPlayStart = () => {
+    const track = current();
+    if (!isTauri() || !isRealTrack(track) || lastReportedPlayId === track.id) return;
+    lastReportedPlayId = track.id;
+    void reportPlayStart(track.id, playSourceId)
+      .then(() => rememberRecent(track))
+      .catch((error) => {
+        if (lastReportedPlayId === track.id) lastReportedPlayId = "";
+        debugLog("play report failed", {
+          id: track.id,
+          message: typeof error === "string" ? error : String(error),
+        });
+      });
   };
 
   const loadLyrics = async (track: Track) => {
@@ -470,9 +495,15 @@ export default function App() {
     else setLoginOpen(true);
   };
 
-  const playTrack = (track: Track, context?: Track[]) => {
+  const playTrack = (track: Track, context?: Track[], sourceId?: string) => {
     playRequest += 1;
     userStarted = true;
+    playSourceId =
+      sourceId && /^\d+$/.test(sourceId)
+        ? sourceId
+        : track.albumId && /^\d+$/.test(track.albumId)
+          ? track.albumId
+          : "0";
     debugLog("play track", {
       id: track.id,
       title: track.title,
@@ -520,6 +551,7 @@ export default function App() {
       }
     }
     userStarted = true;
+    playSourceId = /^\d+$/.test(target.id) ? target.id : "0";
     setQueue(list);
     setCurrent(list[0]);
     setProgress(0);
@@ -776,11 +808,13 @@ export default function App() {
   const handleLoginSuccess = (next: Account) => {
     sessionEpoch += 1;
     likedLoaded = false;
+    lastReportedPlayId = "";
     setAccount(next);
     setLoginOpen(false);
     setLibrary(null);
     showToast(`已登录：${next.nickname}，正在同步歌库`);
     void loadCatalog();
+    if (playing()) reportCurrentPlayStart();
   };
 
   const handleLogout = async () => {
@@ -791,6 +825,7 @@ export default function App() {
       return;
     }
     sessionEpoch += 1;
+    lastReportedPlayId = "";
     setAccount(null);
     setHome(null);
     setLibrary(null);
@@ -834,6 +869,7 @@ export default function App() {
       debugLog("audio play event", { id: current().id });
       setPlaying(true);
       audioFailed = false;
+      reportCurrentPlayStart();
     });
     audio.addEventListener("playing", () => {
       debugLog("audio playing", { id: current().id });

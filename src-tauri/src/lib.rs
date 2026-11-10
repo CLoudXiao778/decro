@@ -77,6 +77,7 @@ pub fn run() {
             netease::search_kind,
             netease::lyric,
             netease::like_song,
+            netease::report_play_start,
             netease::playback_config,
             open_song_page,
             open_playlist_page,

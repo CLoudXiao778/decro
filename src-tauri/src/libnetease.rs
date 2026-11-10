@@ -7,12 +7,16 @@
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use libc::c_long;
+use rand::Rng;
 use serde_json::Value;
 
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+const MAC_UA: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
 
 #[repr(C)]
 struct NeHttpResp {
@@ -46,6 +50,11 @@ struct NeResp {
     err: i32,
 }
 
+#[repr(C)]
+struct Jmap {
+    _private: [u8; 0],
+}
+
 extern "C" {
     fn ne_http_set_transport(transport: *const NeHttpTransport);
     fn ne_set_api_base(base: *const c_char);
@@ -66,6 +75,11 @@ extern "C" {
 
     fn ne_song_url_v1(id: *const c_char, level: *const c_char) -> *mut NeResp;
     fn ne_song_like(track_id: *const c_char, like: *const c_char) -> *mut NeResp;
+    fn ne_eapi(url: *const c_char, data: *const Jmap) -> *mut c_char;
+    fn jmap_new() -> *mut Jmap;
+    fn jmap_put(map: *mut Jmap, key: *const c_char, value: *const c_char);
+    fn jmap_put_map(map: *mut Jmap, key: *const c_char, value: *mut Jmap);
+    fn jmap_free(map: *mut Jmap);
     fn ne_album_detail(id: *const c_char) -> *mut NeResp;
     fn ne_playlist_subscribe(id: *const c_char, t: *const c_char) -> *mut NeResp;
     fn ne_playlist_create(name: *const c_char, privacy: *const c_char) -> *mut NeResp;
@@ -144,6 +158,204 @@ pub fn cookie_header() -> String {
         let ptr = ne_jar_cookie_header(jar);
         take_c_string(ptr)
     }
+}
+
+fn cookie_pairs(header: &str) -> Vec<(String, String)> {
+    header
+        .split(';')
+        .filter_map(|part| {
+            let mut pieces = part.trim().splitn(2, '=');
+            let key = pieces.next()?.trim();
+            let value = pieces.next()?.trim();
+            if key.is_empty() {
+                None
+            } else {
+                Some((key.to_string(), value.to_string()))
+            }
+        })
+        .collect()
+}
+
+fn cookie_value<'a>(pairs: &'a [(String, String)], key: &str) -> Option<&'a str> {
+    pairs
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.as_str())
+}
+
+fn set_cookie(pairs: &mut Vec<(String, String)>, key: &str, value: &str) {
+    if let Some((_, current)) = pairs
+        .iter_mut()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+    {
+        *current = value.to_string();
+    } else {
+        pairs.push((key.to_string(), value.to_string()));
+    }
+}
+
+fn cookie_string(pairs: &[(String, String)]) -> String {
+    pairs
+        .iter()
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn random_device_id() -> String {
+    let mut rng = rand::thread_rng();
+    (0..52)
+        .map(|_| format!("{:X}", rng.gen_range(0..16u8)))
+        .collect()
+}
+
+fn unix_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+/// Report a "startplay" event to NetEase's desktop log endpoint. This is what
+/// updates the account's 最近播放 list; the old `/weapi/feedback/weblog`
+/// endpoint returns success but is silently discarded by the server.
+pub fn report_play_start(id: &str, source_id: &str) -> Result<(), String> {
+    init();
+    if id.is_empty() || !id.chars().all(|character| character.is_ascii_digit()) {
+        return Err("无效的歌曲 ID".to_string());
+    }
+
+    let raw_cookie = cookie_header();
+    if raw_cookie.trim().is_empty() {
+        return Err("请先登录网易云".to_string());
+    }
+    let mut cookies = cookie_pairs(&raw_cookie);
+    let music_u = cookie_value(&cookies, "MUSIC_U").unwrap_or("").to_string();
+    let music_a = cookie_value(&cookies, "MUSIC_A").unwrap_or("").to_string();
+    if music_u.is_empty() && music_a.is_empty() {
+        return Err("请先登录网易云".to_string());
+    }
+
+    let now = unix_seconds();
+    let mut rng = rand::thread_rng();
+    let device_id = cookie_value(&cookies, "deviceId")
+        .or_else(|| cookie_value(&cookies, "sDeviceId"))
+        .map(str::to_string)
+        .unwrap_or_else(random_device_id);
+    let csrf = cookie_value(&cookies, "__csrf").unwrap_or("").to_string();
+    let buildver = now.to_string();
+    let request_id = format!("{}{:03}", now.saturating_mul(1000), rng.gen_range(0..1000));
+    let source_id = if source_id.is_empty() { "0" } else { source_id };
+
+    let overrides = [
+        ("os", "osx"),
+        ("appver", "3.1.10.5100"),
+        ("osver", "15.5"),
+        ("channel", "netease"),
+        ("deviceId", device_id.as_str()),
+        ("versioncode", "140"),
+        ("mobilename", ""),
+        ("buildver", buildver.as_str()),
+        ("resolution", "1920x1080"),
+        ("__csrf", csrf.as_str()),
+        ("requestId", request_id.as_str()),
+    ];
+    for (key, value) in overrides {
+        set_cookie(&mut cookies, key, value);
+    }
+
+    let track_id = id.parse::<u64>().map_err(|_| "无效的歌曲 ID".to_string())?;
+    let logs = serde_json::json!([{
+        "action": "startplay",
+        "json": {
+            "id": track_id,
+            "type": "song",
+            "mainsite": "1",
+            "mainsiteWeb": "1",
+            "content": format!("id={source_id}")
+        }
+    }])
+    .to_string();
+
+    let mut header = vec![
+        ("osver".to_string(), "15.5".to_string()),
+        ("deviceId".to_string(), device_id.clone()),
+        ("appver".to_string(), "3.1.10.5100".to_string()),
+        ("versioncode".to_string(), "140".to_string()),
+        ("mobilename".to_string(), String::new()),
+        ("buildver".to_string(), buildver),
+        ("resolution".to_string(), "1920x1080".to_string()),
+        ("__csrf".to_string(), csrf),
+        ("os".to_string(), "osx".to_string()),
+        ("channel".to_string(), "netease".to_string()),
+        ("requestId".to_string(), request_id),
+    ];
+    if !music_u.is_empty() {
+        header.push(("MUSIC_U".to_string(), music_u));
+    }
+    if !music_a.is_empty() {
+        header.push(("MUSIC_A".to_string(), music_a));
+    }
+
+    let params = {
+        let _guard = lock();
+        unsafe {
+            let data = jmap_new();
+            if data.is_null() {
+                return Err("播放上报初始化失败".to_string());
+            }
+            jmap_put(data, cstring("logs").as_ptr(), cstring(&logs).as_ptr());
+            let header_map = jmap_new();
+            if header_map.is_null() {
+                jmap_free(data);
+                return Err("播放上报初始化失败".to_string());
+            }
+            for (key, value) in &header {
+                jmap_put(header_map, cstring(key).as_ptr(), cstring(value).as_ptr());
+            }
+            jmap_put_map(data, cstring("header").as_ptr(), header_map);
+            let encrypted = ne_eapi(cstring("/api/feedback/weblog").as_ptr(), data);
+            jmap_free(data);
+            take_c_string(encrypted)
+        }
+    };
+    if params.is_empty() {
+        return Err("播放上报加密失败".to_string());
+    }
+
+    let response = client()
+        .post("https://clientlog.music.163.com/eapi/feedback/weblog")
+        .header(reqwest::header::REFERER, "https://music.163.com/")
+        .header(reqwest::header::ORIGIN, "https://music.163.com")
+        .header(reqwest::header::USER_AGENT, MAC_UA)
+        .header(reqwest::header::COOKIE, cookie_string(&cookies))
+        .form(&[("params", params.as_str())])
+        .send()
+        .map_err(|error| format!("播放上报失败: {error}"))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .map_err(|error| format!("播放上报响应读取失败: {error}"))?;
+    if !status.is_success() {
+        return Err(format!("播放上报失败: HTTP {status}"));
+    }
+    let json: Value =
+        serde_json::from_str(&text).map_err(|error| format!("播放上报响应格式异常: {error}"))?;
+    let code = json.get("code").and_then(Value::as_i64).unwrap_or(200);
+    if code != 200 {
+        let message = json
+            .get("message")
+            .or_else(|| json.get("msg"))
+            .and_then(Value::as_str)
+            .unwrap_or("网易云拒绝了播放上报");
+        return Err(format!("{message}（{code}）"));
+    }
+    crate::logger::log(
+        "info",
+        "play",
+        &format!("reported id={id} source={source_id}"),
+    );
+    Ok(())
 }
 
 pub fn qr_start() -> Result<(String, String), String> {

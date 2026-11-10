@@ -476,6 +476,11 @@ export async function likeSong(id: string, like: boolean): Promise<boolean> {
   return result.liked;
 }
 
+export async function reportPlayStart(id: string, sourceId = "0"): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("report_play_start", { id, sourceId });
+}
+
 export async function getPlaybackConfig(): Promise<PlaybackConfig> {
   return invoke<PlaybackConfig>("playback_config");
 }

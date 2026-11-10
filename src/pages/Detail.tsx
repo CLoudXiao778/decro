@@ -12,7 +12,7 @@ export function DetailPage(props: {
   playing: boolean;
   liked: (track: Track) => boolean;
   onPlayPlaylist: (playlist: Playlist, shuffle?: boolean) => void;
-  onPlayTrack: (track: Track, context?: Track[]) => void;
+  onPlayTrack: (track: Track, context?: Track[], sourceId?: string) => void;
   onToggleLike: (track: Track) => void;
   onSetPlaylistSubscribed: (playlist: Playlist, subscribed: boolean) => Promise<boolean>;
   onToast: (message: string) => void;
@@ -183,7 +183,7 @@ export function DetailPage(props: {
             <button
               class="detail-track"
               classList={{ "is-active": track.id === props.current.id }}
-              onClick={() => props.onPlayTrack(track, props.playlist.tracks ?? [])}
+              onClick={() => props.onPlayTrack(track, props.playlist.tracks ?? [], props.playlist.id)}
             >
               <span class="detail-track__cover">
                 <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} url={track.coverUrl} showLabel={false} />
@@ -240,7 +240,7 @@ export function DetailPage(props: {
           >
             <button
               onClick={() => {
-                props.onPlayTrack(menu().track, props.playlist.tracks ?? []);
+                props.onPlayTrack(menu().track, props.playlist.tracks ?? [], props.playlist.id);
                 setTrackMenu(null);
               }}
             >
