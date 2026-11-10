@@ -650,12 +650,10 @@ kbd {
 }
 .app.player-open .player-dock {
   opacity: 0;
-  transform: translateY(16px);
   pointer-events: none;
 }
 .player-dock.is-hidden {
   opacity: 0;
-  transform: translateY(16px);
   pointer-events: none;
 }
 .dock-cover {
