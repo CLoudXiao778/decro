@@ -66,9 +66,11 @@ npm run tauri build -- --bundles nsis
 
 产物：
 
-- `src-tauri/target/release/bundle/nsis/*.exe`（0.5.7 本地文件名为 `Decro Desktop_0.5.7_x64-setup.exe`；
-  GitHub Release 会把空格转成点，资源名为 `Decro.Desktop_0.5.7_x64-setup.exe`，约 2.5 MiB）
-- 可选：portable zip（复制 exe + WebView2 引导）
+- `src-tauri/target/release/bundle/nsis/*.exe`（0.5.8 本地文件名为 `Decro Desktop_0.5.8_x64-setup.exe`；
+  GitHub Release 会把空格转成点，资源名为 `Decro.Desktop_0.5.8_x64-setup.exe`，约 2.5 MiB）
+- `src-tauri/target/release/decro-desktop.exe`：portable 主程序
+- GitHub Actions 会额外生成 `Decro.Desktop_0.5.8_portable_x64.zip`
+  （只含 `Decro Desktop.exe` + `README.txt`，不含 `data\`）
 
 ### GitHub Actions（推荐）
 
@@ -79,9 +81,9 @@ npm run tauri build -- --bundles nsis
 3. `npm ci`
 4. `npm run build`
 5. `cargo tauri build --bundles nsis`
-6. 上传安装包 / portable
+6. 生成 portable zip（exe + README）并上传安装包 / portable
 7. 包体门禁：安装包 > 15 MB 失败
-8. tag 时创建 GitHub Release
+8. tag 时创建 GitHub Release（NSIS + portable zip）
 
 示例（伪代码）：
 
@@ -109,6 +111,25 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*.exe
 ```
 
+### Portable 数据目录
+
+portable 版数据全部在 exe 同目录：
+
+```text
+Decro Desktop.exe
+data/
+  netease-auth.bin
+  logs/decro.log
+  webview/EBWebView/...
+```
+
+- 升级时只覆盖 `Decro Desktop.exe`，保留 `data\`。
+- 0.5.8 首次启动会把旧版 AppData 的 `netease-auth.bin` 和
+  `EBWebView/Default/Local Storage` 复制到 portable `data\`；迁移仅本版保留。
+- `tauri.conf.json` 的主窗口设置 `create: false`，由 Rust 在 setup 中用
+  `WebviewWindowBuilder::data_directory(data/webview)` 手动创建，确保 WebView2 的
+  localStorage/缓存也落在 portable 目录。
+
 ## 4. 包体预算
 
 | 组成 | 目标 |
@@ -116,7 +137,7 @@ jobs:
 | Tauri/Rust exe（strip + LTO + opt-level=z） | 4–6 MB |
 | Web 资源（JS/CSS/字体子集/图标） | 0.6–1.2 MB |
 | SQLite + libnetease + QR | 1.5–2.5 MB |
-| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.2.1 实测 1.83 MiB；0.3.0 实测 2.49 MiB；0.3.1 实测 2.49 MiB；0.3.2 实测 2.49 MiB；0.4.0 实测 2.49 MiB；0.4.1 实测 2.49 MiB；0.4.2 实测 2.49 MiB；0.4.3 实测 2.49 MiB；0.4.4 实测 2.49 MiB；0.4.5 实测 2.49 MiB；0.4.6 实测 2.49 MiB；0.4.7 实测 2.49 MiB；0.5.0 实测 2.51 MiB；0.5.1 实测 2.51 MiB；0.5.2 实测 2.51 MiB；0.5.3 实测 2.51 MiB；0.5.4 实测 2.51 MiB；0.5.5 实测 2.52 MiB；0.5.6 实测 2.52 MiB；0.5.7 实测 2.52 MiB）** |
+| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.2.1 实测 1.83 MiB；0.3.0 实测 2.49 MiB；0.3.1 实测 2.49 MiB；0.3.2 实测 2.49 MiB；0.4.0 实测 2.49 MiB；0.4.1 实测 2.49 MiB；0.4.2 实测 2.49 MiB；0.4.3 实测 2.49 MiB；0.4.4 实测 2.49 MiB；0.4.5 实测 2.49 MiB；0.4.6 实测 2.49 MiB；0.4.7 实测 2.49 MiB；0.5.0 实测 2.51 MiB；0.5.1 实测 2.51 MiB；0.5.2 实测 2.51 MiB；0.5.3 实测 2.51 MiB；0.5.4 实测 2.51 MiB；0.5.5 实测 2.52 MiB；0.5.6 实测 2.52 MiB；0.5.7 实测 2.52 MiB；0.5.8 待测）** |
 | 安装后 | 20–35 MB |
 | WebView2 | 系统自带；缺失时引导安装 |
 | ONNX 人声分离 | 不打包；设置页已移除入口 |

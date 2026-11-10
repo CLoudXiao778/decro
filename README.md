@@ -10,16 +10,41 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 
 ## 下载
 
-- **Windows 10/11 x64 安装包**：[Decro Desktop 0.5.7 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.5.7/Decro.Desktop_0.5.7_x64-setup.exe)
-- 安装包约 **2.52 MiB**；未签名，首次运行可能触发 SmartScreen 提示。
-- 依赖系统 WebView2（Windows 11 自带；较新的 Windows 10 通常已随 Edge 安装）。
-- 这是 **0.5.7 版本**：新增歌词滚轮滚动与点击跳转，修正播放页按钮归位和详情页菜单层级。
+- **Windows 10/11 x64 便携版（推荐）**：[Decro Desktop 0.5.8 portable .zip](https://github.com/CLoudXiao778/decro/releases/download/v0.5.8/Decro.Desktop_0.5.8_portable_x64.zip)
+  - 解压即用；数据保存在 exe 同目录的 `data\`，升级只覆盖 exe。
+- **Windows 10/11 x64 安装包**：[Decro Desktop 0.5.8 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.5.8/Decro.Desktop_0.5.8_x64-setup.exe)
+- 未签名，首次运行可能触发 SmartScreen 提示；依赖系统 WebView2（Windows 11 自带，较新的 Windows 10 通常已随 Edge 安装）。
+- 这是 **0.5.8 版本**：改为 portable 数据目录，新增上次播放/音量记忆，并修正音质显示。
+
+### Portable 数据目录与升级
+
+- `data\netease-auth.bin`：登录凭证（DPAPI 加密）。
+- `data\webview\`：WebView2 配置、localStorage（主题、音量、上次播放、音质、歌单置顶等）。
+- `data\logs\decro.log`：日志。
+- 升级：退出应用，用新版 zip 中的 `Decro Desktop.exe` 覆盖旧 exe，不要删除 `data\`。
+- 0.5.8 首次启动会自动尝试从旧版 AppData 迁移登录和设置；该迁移逻辑只在本版保留，后续版本移除。
+
+### 从旧版手动迁移
+
+若自动迁移没有生效，先退出应用，再复制：
+
+1. `%APPDATA%\io.github.cloudxiao778.decrodesktop\netease-auth.bin`
+   → `<应用目录>\data\netease-auth.bin`
+2. `%LOCALAPPDATA%\io.github.cloudxiao778.decrodesktop\EBWebView\Default\Local Storage`
+   → `<应用目录>\data\webview\EBWebView\Default\Local Storage`
+
+更早的 `cirrodesktop` 标识目录也可按同样方式复制。复制完成后启动应用。
 
 ## 当前状态
 
-- **阶段**：0.5.7 · Decro 品牌 + 歌手/专辑页 + Windows 系统媒体控制
+- **阶段**：0.5.8 · Decro 品牌 + 歌手/专辑页 + Windows 系统媒体控制
 - 已通过无线 ADB 获取 alpha42 真机截图，并按真机界面重做了主页、资料库、搜索、详情、播放页与歌词页。
 - 已完成：桌面标题栏、图标侧栏、底部播放条、沉浸播放页、全屏歌词、搜索命令面板、主页/分类/资料库/搜索/详情/设置、亮/暗主题、Splash、共享封面转场、响应式布局。
+- **0.5.8 更新**：
+  - Portable 数据目录：登录、日志、设置和 WebView2 数据都在 exe 同目录 `data\`；升级只覆盖 exe。
+  - 记住上次播放的歌曲、队列、进度和音量。
+  - 音质标签显示当前请求档位；设置页默认音质改为自定义下拉。
+  - 首次启动自动迁移旧版 AppData 登录和 localStorage。
 - **0.5.7 新增**：
   - 歌词模式支持滚轮/触控板滚动，滚动时暂停自动跟随，停止后恢复居中。
   - 点击任意歌词行跳转到对应播放时间并同步高亮。
@@ -188,7 +213,7 @@ public/fonts/     # Inter（OFL）
 - 本仓库的代码以 MIT License 发布；上游的专辑封面、歌词与真机截图不属于本仓库。
 - 网易云音乐接口属于第三方非官方接口，登录、曲库与播放的可用性由平台策略决定；风险由使用者自行承担。
 - 登录优先使用扫码；若网络被风控，可在登录弹窗内导入网页版 `MUSIC_U` 凭证。应用不绕过验证码、风控或版权限制。
-- 登录凭证只保存在本机 `%APPDATA%`，由 Windows DPAPI 加密；前端与日志都拿不到 Cookie。
+- 登录凭证只保存在应用目录的 `data\netease-auth.bin`，由 Windows DPAPI 加密；前端与日志都拿不到 Cookie。
 - 音频通过只监听 `127.0.0.1` 的 Rust 代理播放，代理带随机 token；浏览器/前端不直接接触音源签名 URL。
 - 当前没有捆绑任何 ONNX 模型；设置页也已移除人声分离入口。
 

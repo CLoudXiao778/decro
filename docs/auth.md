@@ -85,14 +85,18 @@
 
 ## 4. 凭证存储
 
-- 位置：`%APPDATA%\io.github.cloudxiao778.decrodesktop\netease-auth.bin`
-  （Tauri `app_data_dir`，不写入项目目录，也不写入 `localStorage`）。
+- 位置：`<应用目录>\data\netease-auth.bin`
+  （portable 数据目录，不写入 `%APPDATA%`，也不写入 `localStorage`）。
 - 内容：登录后的 Cookie 请求头字符串（libnetease 的 jar 只在内存，写盘目标是 `NUL`/`/dev/null`）。
 - 加密：Windows DPAPI `CryptProtectData`（CurrentUser），读取时
   `CryptUnprotectData`。密文与当前 Windows 用户绑定，复制到其他用户或电脑无法解密。
 - 退出登录：删除该文件，并清空 Rust 内存中的 cookie / account / 音源缓存。
 - 启动恢复：`auth_status` 读取并解密文件，然后请求账号资料验证；失效则返回未登录。
-- 从 0.2.0 升级时，若新标识符目录没有凭证，会读取旧 `io.github.cloudxiao778.cirrodesktop` 文件并迁移到新目录；成功后删除旧文件。
+- 0.5.8 首次启动会把旧版 `%APPDATA%\io.github.cloudxiao778.decrodesktop\netease-auth.bin`
+  （以及更早的 `cirrodesktop` 标识目录）复制到 portable 的 `data\netease-auth.bin`。
+  该一次性迁移只在本版保留，后续版本移除。
+- 若自动迁移失败，可手动把旧文件复制到 `<应用目录>\data\netease-auth.bin`。
+- 登录凭证仍是 DPAPI 密文，复制到其他 Windows 用户或电脑无法解密。
 - 非 Windows 开发构建不把凭证写盘：`protect` 返回错误，扫码/导入的登录仅在当前进程内有效。
   公开发布只构建 Windows。
 

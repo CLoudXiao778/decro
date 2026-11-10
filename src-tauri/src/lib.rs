@@ -2,13 +2,14 @@ mod auth;
 mod libnetease;
 mod logger;
 mod netease;
+mod portable;
 mod proxy;
 mod secure_store;
 mod state;
 
 use rand::RngCore;
 use state::{AppState, ProxyInfo};
-use tauri::Manager;
+use tauri::WebviewWindowBuilder;
 
 fn random_token() -> String {
     let mut bytes = [0u8; 24];
@@ -33,13 +34,28 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .setup(move |app| {
-            let log_dir = app
-                .path()
-                .app_log_dir()
-                .or_else(|_| app.path().app_data_dir())
-                .unwrap_or_else(|_| std::env::temp_dir());
-            logger::init(log_dir);
-            logger::log("info", "app", "Decro Desktop starting");
+            let data_dir = portable::init(app.handle());
+            logger::init(portable::log_dir());
+            logger::log(
+                "info",
+                "app",
+                &format!("Decro Desktop starting; data={}", data_dir.display()),
+            );
+
+            // Create the window here instead of letting Tauri create it from
+            // config, so WebView2's profile also lives under the portable data
+            // directory. The window config keeps `create: false`.
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == "main")
+                .cloned()
+                .expect("main window config is required");
+            WebviewWindowBuilder::from_config(app.handle(), &window_config)?
+                .data_directory(portable::webview_dir())
+                .build()?;
             tauri::async_runtime::spawn(async move {
                 if listener.set_nonblocking(true).is_err() {
                     logger::log("error", "proxy", "failed to set non-blocking listener");

@@ -2,17 +2,28 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与语义化版本。
 
-## [Unreleased]
+## [0.5.8] - 2026-11-10
+
+改为 portable 数据目录，并补齐播放状态、音量和音质显示。
 
 ### Added
 
+- Portable 数据目录：登录凭证、日志、WebView2 配置与 localStorage 全部保存在 exe 同目录的 `data\` 下。
 - 启动时恢复上次关闭时播放的歌曲、队列与播放进度；存在上次播放记录时，首页数据不再覆盖当前歌曲。
+- Windows Release 新增 portable zip；升级时只需覆盖 `Decro Desktop.exe`，保留 `data\` 即可。
+- 首次启动自动从旧版 AppData 迁移 `netease-auth.bin` 与 WebView2 的 Local Storage；该迁移仅 0.5.8 保留，后续版本移除。
 
 ### Fixed
 
 - 记住音量：启动时恢复上次音量，修改后写入本地存储，不再每次重启回到默认值。
 - 播放页音质标签改为显示当前请求档位（默认音质/单曲选择）；只有选择「自动」时才显示歌曲标称音质，不再固定显示 HQ 等标称值。
 - 设置页「默认音质」改用与搜索页一致的玻璃下拉菜单，替换样式丢失的原生 select；空间不足时自动向上展开。
+
+### Release
+
+- 版本号 0.5.8；其余功能与 0.5.7 相同。
+
+## [Unreleased]
 
 ### Planned
 

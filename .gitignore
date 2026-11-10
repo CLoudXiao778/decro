@@ -3,6 +3,8 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 release/
+portable/
+Decro.Desktop_*_portable_x64.zip
 *.log
 *.apk
 *.APK
