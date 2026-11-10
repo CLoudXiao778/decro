@@ -8,7 +8,7 @@
 
 - 设置页新增日志级别：Debug / Info / Warn / Error / None，同时过滤 Rust 日志和前端日志。
 - 内存诊断日志：启动、最小化和恢复时记录主进程与 WebView2 子进程的总工作集/私有内存；Debug 级别每 60 秒记录一次。
-- 最小化 900ms 后挂起 WebView2（TrySuspend）并回收主进程与子进程工作集；启动 15 秒后做一次 idle trim，窗口失焦时每 60 秒后台回收。
+- 最小化 900ms 后把 WebView2 切到低内存目标级别并 TrySuspend，再回收主进程与子进程工作集；恢复时恢复 Normal 级别并 Resume。启动 15 秒后做一次 idle trim，窗口失焦时每 60 秒后台回收。
 
 ### Fixed
 

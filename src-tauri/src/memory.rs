@@ -217,13 +217,27 @@ pub fn trim_working_set(_tag: &str, _level: &str) {}
 
 #[cfg(target_os = "windows")]
 pub fn set_webview_suspended(window: &tauri::WebviewWindow, suspended: bool) {
-    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2_19, ICoreWebView2_3, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+    };
     use windows_core::Interface;
 
     let _ = window.with_webview(move |webview| {
         let controller = webview.controller();
         let core = unsafe { controller.CoreWebView2() };
         let Ok(core) = core else { return };
+
+        if let Ok(core19) = core.cast::<ICoreWebView2_19>() {
+            unsafe {
+                let _ = core19.SetMemoryUsageTargetLevel(if suspended {
+                    COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+                } else {
+                    COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+                });
+            }
+        }
+
         let Ok(core3) = core.cast::<ICoreWebView2_3>() else {
             return;
         };
