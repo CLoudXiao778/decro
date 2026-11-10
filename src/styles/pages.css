@@ -3612,6 +3612,37 @@ button.settings-source-row:hover {
 .settings-picker__chevrons .rotate-180 {
   margin-bottom: -7px;
 }
+.settings-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--on-surface-3);
+}
+.settings-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 4px 22px 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--on-surface-3);
+  font-size: 14px;
+  cursor: pointer;
+}
+.settings-select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.settings-select option {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+.settings-select-wrap > svg {
+  position: absolute;
+  right: 0;
+  pointer-events: none;
+}
 .source-switch {
   position: relative;
   width: 46px;

@@ -29,6 +29,11 @@ import {
   type LibraryBundle,
   type PlaybackConfig,
 } from "./lib/netease";
+import {
+  isQualityLevel,
+  qualityLabel,
+  type QualityLevel,
+} from "./lib/quality";
 import { EntityPage, type EntityEntry } from "./pages/Entity";
 import { formatTime } from "./lib/format";
 import { debugLog, openLogFolder } from "./lib/log";
@@ -71,6 +76,11 @@ function storedBool(key: string, fallback: boolean): boolean {
   return fallback;
 }
 
+function initialQuality(): QualityLevel {
+  const saved = localStorage.getItem("decro.defaultQuality");
+  return saved && isQualityLevel(saved) ? saved : "auto";
+}
+
 export default function App() {
   migrateLocalSettings();
   const [page, setPage] = createSignal<Page>("explore");
@@ -88,6 +98,8 @@ export default function App() {
   const [lowPower, setLowPower] = createSignal<boolean>(initialLowPower());
   const [coverAccent, setCoverAccent] = createSignal(storedBool("decro.coverAccent", true));
   const [showTranslation, setShowTranslation] = createSignal(storedBool("decro.translation", true));
+  const [defaultQuality, setDefaultQuality] = createSignal<QualityLevel>(initialQuality());
+  const [qualityOverrides, setQualityOverrides] = createSignal<Record<string, QualityLevel>>({});
   const [account, setAccount] = createSignal<Account | null>(null);
   const [loginOpen, setLoginOpen] = createSignal(false);
   const [navCollapsed, setNavCollapsed] = createSignal(true);
@@ -130,6 +142,12 @@ export default function App() {
     setToast(message);
     window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => setToast(null), 2400);
+  };
+
+  const currentQuality = () => qualityOverrides()[current().id] ?? defaultQuality();
+  const currentLevel = () => {
+    const selected = currentQuality();
+    return selected === "auto" ? streamLevel(current().quality) : selected;
   };
 
   const loadLyrics = async (track: Track) => {
@@ -600,6 +618,41 @@ export default function App() {
     });
   };
 
+  const reloadCurrentQuality = (selected: QualityLevel) => {
+    if (!audio || !playback() || !isRealTrack(current()) || !audio.src) return;
+    const resumeAt = audio.currentTime;
+    const shouldPlay = playing();
+    const level = selected === "auto" ? streamLevel(current().quality) : selected;
+    audio.src = streamUrl(playback()!, current().id, level);
+    audio.load();
+    audio.addEventListener(
+      "loadedmetadata",
+      () => {
+        if (!audio) return;
+        try {
+          if (resumeAt > 0) audio.currentTime = resumeAt;
+        } catch {
+          /* the new source may not be seekable yet */
+        }
+        if (shouldPlay) attemptPlay();
+      },
+      { once: true },
+    );
+  };
+
+  const handleDefaultQuality = (level: QualityLevel) => {
+    setDefaultQuality(level);
+    showToast(`默认音质已设为${qualityLabel(level)}`);
+    reloadCurrentQuality(level);
+  };
+
+  const handleTrackQuality = (level: QualityLevel) => {
+    const trackId = current().id;
+    setQualityOverrides((value) => ({ ...value, [trackId]: level }));
+    showToast(`当前歌曲音质已设为${qualityLabel(level)}`);
+    reloadCurrentQuality(level);
+  };
+
   /** Keep Windows' media flyout and hardware keys in sync with the WebView
    * player. Position is sent once per second while playing, not per frame. */
   const syncMediaSession = (positionOverride?: number) => {
@@ -633,7 +686,7 @@ export default function App() {
         id: current().id,
         base: playback()!.base,
       });
-      audio.src = streamUrl(playback()!, current().id, streamLevel(current().quality));
+      audio.src = streamUrl(playback()!, current().id, currentLevel());
       audio.load();
     }
     if (audio && !audio.src && isRealTrack(current())) {
@@ -882,6 +935,10 @@ export default function App() {
   });
 
   createEffect(() => {
+    localStorage.setItem("decro.defaultQuality", defaultQuality());
+  });
+
+  createEffect(() => {
     if (isTauri()) return;
     if (!playing()) return;
     const timer = window.setInterval(() => {
@@ -913,7 +970,7 @@ export default function App() {
         id: current().id,
         base: playback()!.base,
       });
-      audio.src = streamUrl(playback()!, current().id, streamLevel(current().quality));
+      audio.src = streamUrl(playback()!, current().id, currentLevel());
       audio.load();
       if (playing()) attemptPlay();
     },
@@ -1193,6 +1250,8 @@ export default function App() {
                       onCoverAccent={setCoverAccent}
                       showTranslation={showTranslation()}
                       onShowTranslation={setShowTranslation}
+                      defaultQuality={defaultQuality()}
+                      onDefaultQuality={handleDefaultQuality}
                       account={account()}
                       onLogin={() => setLoginOpen(true)}
                       onLogout={() => void handleLogout()}
@@ -1304,6 +1363,8 @@ export default function App() {
         onOpenAlbum={openAlbum}
         onToast={showToast}
         showTranslation={showTranslation()}
+        quality={currentQuality()}
+        onQuality={handleTrackQuality}
       />
 
       <LoginModal

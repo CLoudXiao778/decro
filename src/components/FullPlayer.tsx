@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { Track } from "../data/mock";
 import { formatTime } from "../lib/format";
+import { qualityLabel, qualityOptions, type QualityLevel } from "../lib/quality";
 import { CoverArt } from "./CoverArt";
 import { Icon } from "./Icon";
 import { VolumeBar } from "./ProgressBar";
@@ -109,6 +110,8 @@ export function FullPlayer(props: {
   onOpenAlbum: (id: string) => void;
   onToast: (message: string) => void;
   showTranslation: boolean;
+  quality: QualityLevel;
+  onQuality: (level: QualityLevel) => void;
 }) {
   const [visible, setVisible] = createSignal(false);
   const [hidden, setHidden] = createSignal(true);
@@ -118,6 +121,7 @@ export function FullPlayer(props: {
   const [lyricsFocus, setLyricsFocus] = createSignal(false);
   const [queueOpen, setQueueOpen] = createSignal(false);
   const [menuOpen, setMenuOpen] = createSignal(false);
+  const [qualityMenuOpen, setQualityMenuOpen] = createSignal(false);
   const [sourceDock, setSourceDock] = createSignal<Rect | null>(null);
   const [sourceCover, setSourceCover] = createSignal<Rect | null>(null);
   const [sourceControls, setSourceControls] = createSignal<{
@@ -657,6 +661,10 @@ export function FullPlayer(props: {
     }
   };
 
+  createEffect(() => {
+    if (!menuOpen()) setQualityMenuOpen(false);
+  });
+
   onMount(() => window.addEventListener("keydown", onKey));
   onMount(() => {
     const closeMenu = (event: PointerEvent) => {
@@ -729,11 +737,6 @@ export function FullPlayer(props: {
             <span class="player-top__dot" />
             正在播放
             <span class="player-top__source">网易云音乐</span>
-          </div>
-          <div class="player-top__actions">
-            <span class="player-quality" title="歌曲标称音质；实际档位以网易云可用音源为准">
-              {props.track.quality ?? "SQ"}
-            </span>
           </div>
         </div>
 
@@ -825,6 +828,40 @@ export function FullPlayer(props: {
                         <Icon name="share" size={16} />
                         复制歌曲信息
                       </button>
+                      <button
+                        role="menuitem"
+                        aria-haspopup="menu"
+                        aria-expanded={qualityMenuOpen()}
+                        onClick={() => setQualityMenuOpen((value) => !value)}
+                      >
+                        <Icon name="headphones" size={16} />
+                        选择音质
+                        <span class="player-menu__value">{qualityLabel(props.quality)}</span>
+                      </button>
+                      <Show when={qualityMenuOpen()}>
+                        <div class="player-menu__qualities" role="group" aria-label="选择音质">
+                          <For each={qualityOptions}>
+                            {(option) => (
+                              <button
+                                role="menuitemradio"
+                                aria-checked={props.quality === option.value}
+                                class="player-menu__quality"
+                                classList={{ "is-active": props.quality === option.value }}
+                                title={option.hint}
+                                onClick={() => {
+                                  props.onQuality(option.value);
+                                  setMenuOpen(false);
+                                }}
+                              >
+                                <span>{option.label}</span>
+                                <Show when={props.quality === option.value}>
+                                  <Icon name="check" size={14} />
+                                </Show>
+                              </button>
+                            )}
+                          </For>
+                        </div>
+                      </Show>
                       <button
                         role="menuitem"
                         onClick={openComments}

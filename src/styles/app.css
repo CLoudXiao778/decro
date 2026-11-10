@@ -1141,38 +1141,9 @@ kbd {
 [data-theme="light"] .player-top__source {
   color: rgba(0, 0, 0, 0.34);
 }
-.player-top__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-}
-.player-top__actions .icon-btn {
-  color: rgba(255, 255, 255, 0.55);
-}
-.player-top__actions .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-[data-theme="light"] .player-top__actions .icon-btn {
-  color: rgba(0, 0, 0, 0.5);
-}
-[data-theme="light"] .player-top__actions .icon-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: #000;
-}
-.player-quality {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-}
-[data-theme="light"] .player-quality {
-  color: rgba(0, 0, 0, 0.45);
-}
 .player-body {
   position: relative;
-  z-index: 3;
+  z-index: 6;
   display: grid;
   grid-template-columns: minmax(300px, 41%) minmax(0, 1fr);
   gap: clamp(36px, 6vw, 88px);
@@ -1183,6 +1154,11 @@ kbd {
   padding: 12px clamp(32px, 5vw, 66px) 138px;
   flex: 1;
   min-height: 0;
+  pointer-events: none;
+}
+.player-left,
+.player-right {
+  pointer-events: auto;
 }
 .player-left {
   display: flex;
@@ -2188,16 +2164,6 @@ kbd {
 }
 .player-top__source {
   color: rgba(255, 255, 255, 0.3);
-}
-.player-top__actions .icon-btn {
-  color: rgba(255, 255, 255, 0.56);
-}
-.player-top__actions .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-.player-quality {
-  color: rgba(255, 255, 255, 0.5);
 }
 .player-body {
   grid-template-columns: minmax(300px, 40%) minmax(0, 1fr);
@@ -3283,4 +3249,31 @@ kbd {
 }
 .player-menu button.player-menu__artist {
   padding-left: 14px;
+}
+.player-menu__value {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10.5px;
+}
+.player-menu__qualities {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin: 2px 0 4px 12px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.player-menu button.player-menu__quality {
+  height: 31px;
+  padding: 0 9px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 11.5px;
+}
+.player-menu button.player-menu__quality.is-active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.player-menu__quality svg {
+  margin-left: auto;
+  color: var(--p2, var(--accent));
 }

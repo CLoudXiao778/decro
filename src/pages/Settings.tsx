@@ -1,6 +1,7 @@
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
 import { Icon } from "../components/Icon";
 import type { Account } from "../lib/auth";
+import { qualityOptions, type QualityLevel } from "../lib/quality";
 
 function Toggle(props: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
@@ -40,6 +41,8 @@ export function SettingsPage(props: {
   onCoverAccent: (value: boolean) => void;
   showTranslation: boolean;
   onShowTranslation: (value: boolean) => void;
+  defaultQuality: QualityLevel;
+  onDefaultQuality: (value: QualityLevel) => void;
   account: Account | null;
   onLogin: () => void;
   onLogout: () => void;
@@ -92,6 +95,31 @@ export function SettingsPage(props: {
             <small>让播放页的环境光跟随当前封面。</small>
           </span>
           <Toggle checked={props.coverAccent} onChange={props.onCoverAccent} label="封面取色" />
+        </div>
+      </div>
+
+      <div class="settings-group-label">音质</div>
+      <div class="settings-source-list">
+        <div class="settings-source-row">
+          <span class="settings-source-row__text">
+            <b>默认音质</b>
+            <small>每次播放时向网易云请求的音质；不可用时自动回退到较低档位。</small>
+          </span>
+          <span class="settings-select-wrap">
+            <select
+              class="settings-select"
+              value={props.defaultQuality}
+              onChange={(event) =>
+                props.onDefaultQuality(event.currentTarget.value as QualityLevel)
+              }
+              aria-label="默认音质"
+            >
+              <For each={qualityOptions}>
+                {(option) => <option value={option.value}>{option.label}</option>}
+              </For>
+            </select>
+            <Icon name="chevron-down" size={16} />
+          </span>
         </div>
       </div>
 

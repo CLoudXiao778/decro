@@ -174,8 +174,8 @@ const paths: Record<IconName, () => JSX.Element> = {
   ),
   lyrics: () => (
     <>
-      <path d="M4.5 6.5h15v8h-6.2L9 18.5v-4H4.5v-8Z" />
-      <path d="M8 9.5h8M8 12.2h5" />
+      <path d="M5 4.5h10.5L19 8v11.5H5z" />
+      <path d="M15 4.5V8h4M8 11h6M8 14h6M8 17h3.5" />
     </>
   ),
   expand: () => (
