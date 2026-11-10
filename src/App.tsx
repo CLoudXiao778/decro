@@ -102,10 +102,12 @@ function initialLogLevel(): LogLevel {
 }
 
 const LAST_PLAYBACK_KEY = "decro.lastPlayback";
+const LAST_PROGRESS_KEY = "decro.lastPlaybackProgress";
 
 type StoredPlayback = {
   track: Track;
   queue: Track[];
+  index: number;
   progress: number;
   sourceId: string;
 };
@@ -125,19 +127,24 @@ function readLastPlayback(): StoredPlayback | null {
     const queue = Array.isArray(data.queue)
       ? data.queue.filter(isStoredTrack)
       : [];
-    const progress =
-      typeof data.progress === "number" && Number.isFinite(data.progress)
-        ? Math.max(
-            0,
-            Math.min(
-              data.progress,
-              data.track.durationSec > 0 ? data.track.durationSec : data.progress,
-            ),
-          )
-        : 0;
+    const storedProgress = Number(localStorage.getItem(LAST_PROGRESS_KEY));
+    const progressValue =
+      Number.isFinite(storedProgress) && storedProgress >= 0
+        ? storedProgress
+        : typeof data.progress === "number" && Number.isFinite(data.progress)
+          ? data.progress
+          : 0;
+    const progress = Math.max(
+      0,
+      Math.min(
+        progressValue,
+        data.track.durationSec > 0 ? data.track.durationSec : progressValue,
+      ),
+    );
     return {
       track: data.track,
       queue,
+      index: typeof data.index === "number" ? data.index : 0,
       progress,
       sourceId: typeof data.sourceId === "string" ? data.sourceId : "0",
     };
@@ -158,15 +165,16 @@ export default function App() {
   const [current, setCurrent] = createSignal<Track>(
     restoredPlayback?.track ?? mockTracks[0],
   );
-  const [queue, setQueue] = createSignal<Track[]>(
-    restoredPlayback?.queue.length
+  const restoredQueue = (() => {
+    if (!restoredPlayback) return isTauri() ? [] : mockTracks;
+    const list = restoredPlayback.queue.length
       ? restoredPlayback.queue
-      : isTauri()
-        ? restoredPlayback
-          ? [restoredPlayback.track]
-          : []
-        : mockTracks,
-  );
+      : [restoredPlayback.track];
+    return list.some((track) => track.id === restoredPlayback.track.id)
+      ? list
+      : [restoredPlayback.track, ...list];
+  })();
+  const [queue, setQueue] = createSignal<Track[]>(restoredQueue);
   const [playing, setPlaying] = createSignal(!isTauri() && !restoredPlayback);
   const [progress, setProgress] = createSignal(restoredPlayback?.progress ?? 0);
   const [volume, setVolume] = createSignal(initialVolume());
@@ -242,16 +250,37 @@ export default function App() {
     if (isTauri() && !isRealTrack(current())) return;
     try {
       const track = current();
-      const rest = queue().filter((item) => item.id !== track.id);
+      const all = queue();
+      let index = all.findIndex((item) => item.id === track.id);
+      let snapshot: Track[];
+      if (index < 0) {
+        snapshot = [track, ...all.slice(0, 499)];
+        index = 0;
+      } else if (all.length <= 500) {
+        snapshot = all;
+      } else {
+        const start = Math.max(0, Math.min(index - 250, all.length - 500));
+        snapshot = all.slice(start, start + 500);
+        index -= start;
+      }
       localStorage.setItem(
         LAST_PLAYBACK_KEY,
         JSON.stringify({
           track,
-          queue: [track, ...rest].slice(0, 60),
+          queue: snapshot,
+          index,
           progress: Math.max(0, progress()),
           sourceId: playSourceId,
         }),
       );
+    } catch {
+      /* localStorage may be unavailable */
+    }
+  };
+
+  const saveLastProgress = () => {
+    try {
+      localStorage.setItem(LAST_PROGRESS_KEY, String(Math.max(0, progress())));
     } catch {
       /* localStorage may be unavailable */
     }
@@ -943,6 +972,7 @@ export default function App() {
     restoredTrackId = "";
     try {
       localStorage.removeItem(LAST_PLAYBACK_KEY);
+    localStorage.removeItem(LAST_PROGRESS_KEY);
     } catch {
       /* ignore */
     }
@@ -1089,16 +1119,22 @@ export default function App() {
   });
 
   createEffect(on(
-    () => current().id,
+    () => `${current().id}:${queue().length}`,
     () => {
-      queueMicrotask(saveLastPlayback);
+      queueMicrotask(() => {
+        saveLastPlayback();
+        saveLastProgress();
+      });
     },
     { defer: true },
   ));
 
   onMount(() => {
-    const save = () => saveLastPlayback();
-    const timer = window.setInterval(save, 5000);
+    const save = () => {
+      saveLastPlayback();
+      saveLastProgress();
+    };
+    const timer = window.setInterval(saveLastProgress, 5000);
     window.addEventListener("beforeunload", save);
     window.addEventListener("pagehide", save);
     onCleanup(() => {
@@ -1203,6 +1239,14 @@ export default function App() {
     debugLog("app mounted", { tauri: isTauri() });
     initAudio();
     if (restoredPlayback && isRealTrack(current())) void loadLyrics(current());
+    if (restoredPlayback) {
+      debugLog("last playback restored", {
+        id: restoredPlayback.track.id,
+        queue: queue().length,
+        index: restoredPlayback.index,
+        progress: Math.round(progress()),
+      });
+    }
     void loadCatalog();
 
     let unlistenMedia: (() => void) | undefined;
