@@ -1,7 +1,7 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Icon } from "../components/Icon";
 import type { Account } from "../lib/auth";
-import { qualityOptions, type QualityLevel } from "../lib/quality";
+import { qualityLabel, qualityOptions, type QualityLevel } from "../lib/quality";
 
 function Toggle(props: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
@@ -48,6 +48,19 @@ export function SettingsPage(props: {
   onLogout: () => void;
   onOpenLogs: () => void;
 }) {
+  const [qualityOpen, setQualityOpen] = createSignal(false);
+  const [qualityUp, setQualityUp] = createSignal(false);
+  let qualityButton!: HTMLButtonElement;
+
+  onMount(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!qualityOpen()) return;
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".settings-quality")) setQualityOpen(false);
+    };
+    window.addEventListener("pointerdown", closeMenu);
+    onCleanup(() => window.removeEventListener("pointerdown", closeMenu));
+  });
 
   return (
     <div class="page page--settings-source">
@@ -105,21 +118,47 @@ export function SettingsPage(props: {
             <b>默认音质</b>
             <small>每次播放时向网易云请求的音质；不可用时自动回退到较低档位。</small>
           </span>
-          <span class="settings-select-wrap">
-            <select
-              class="settings-select"
-              value={props.defaultQuality}
-              onChange={(event) =>
-                props.onDefaultQuality(event.currentTarget.value as QualityLevel)
-              }
+          <div class="settings-quality" classList={{ "is-up": qualityUp() }}>
+            <button
+              ref={qualityButton}
+              class="settings-quality__button"
+              aria-haspopup="listbox"
+              aria-expanded={qualityOpen()}
               aria-label="默认音质"
+              onClick={() => {
+                setQualityOpen((value) => {
+                  const next = !value;
+                  if (next) {
+                    const rect = qualityButton?.getBoundingClientRect();
+                    setQualityUp(!!rect && rect.bottom + 260 > window.innerHeight);
+                  }
+                  return next;
+                });
+              }}
             >
-              <For each={qualityOptions}>
-                {(option) => <option value={option.value}>{option.label}</option>}
-              </For>
-            </select>
-            <Icon name="chevron-down" size={16} />
-          </span>
+              <span>{qualityLabel(props.defaultQuality)}</span>
+              <Icon name="chevron-down" size={15} />
+            </button>
+            <Show when={qualityOpen()}>
+              <div class="settings-quality__menu" role="listbox" aria-label="默认音质">
+                <For each={qualityOptions}>
+                  {(option) => (
+                    <button
+                      role="option"
+                      aria-selected={props.defaultQuality === option.value}
+                      classList={{ "is-active": props.defaultQuality === option.value }}
+                      onClick={() => {
+                        props.onDefaultQuality(option.value);
+                        setQualityOpen(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </div>
         </div>
       </div>
 
