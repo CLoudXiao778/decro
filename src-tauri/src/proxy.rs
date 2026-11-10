@@ -62,7 +62,7 @@ async fn stream(
     let upstream_url = match netease::resolve_song_url(&state, &id, level).await {
         Ok(url) => url,
         Err(error) => {
-            crate::logger::log("error", "proxy", &format!("id={id} resolve: {error}"));
+            crate::logger::log("warn", "proxy", &format!("id={id} resolve: {error}"));
             return (
                 StatusCode::BAD_GATEWAY,
                 [("content-type", "text/plain; charset=utf-8")],

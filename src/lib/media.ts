@@ -1,5 +1,5 @@
 import { isTauri } from "./auth";
-import { debugLog } from "./log";
+import { debugLog, warnLog } from "./log";
 
 export type MediaControlAction = "next" | "previous";
 
@@ -56,7 +56,7 @@ export function updateMediaSession(update: MediaSessionUpdate): void {
       });
     }
   } catch (error) {
-    debugLog("media session update failed", { error: String(error) });
+    warnLog("media session update failed", { error: String(error) });
   }
 }
 

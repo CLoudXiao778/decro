@@ -1088,25 +1088,27 @@ export function FullPlayer(props: {
             </button>
           </div>
           <div class="player-queue__list">
-            <For each={props.queue}>
-              {(track, index) => (
-                <button
-                  class="player-queue__row"
-                  classList={{ "is-current": track.id === props.track.id }}
-                  onClick={() => props.onPlayTrack(track)}
-                >
-                  <span class="num">{index() + 1}</span>
-                  <span class="player-queue__thumb">
-                    <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} url={track.coverUrl} showLabel={false} />
-                  </span>
-                  <span class="player-queue__meta">
-                    <b>{track.title}</b>
-                    <small>{track.artist}</small>
-                  </span>
-                  <span class="player-queue__duration num">{track.duration}</span>
-                </button>
-              )}
-            </For>
+            <Show when={visible()}>
+              <For each={props.queue}>
+                {(track, index) => (
+                  <button
+                    class="player-queue__row"
+                    classList={{ "is-current": track.id === props.track.id }}
+                    onClick={() => props.onPlayTrack(track)}
+                  >
+                    <span class="num">{index() + 1}</span>
+                    <span class="player-queue__thumb">
+                      <CoverArt palette={track.palette} seed={track.coverSeed ?? 0} url={track.coverUrl} showLabel={false} />
+                    </span>
+                    <span class="player-queue__meta">
+                      <b>{track.title}</b>
+                      <small>{track.artist}</small>
+                    </span>
+                    <span class="player-queue__duration num">{track.duration}</span>
+                  </button>
+                )}
+              </For>
+            </Show>
           </div>
         </aside>
       </div>

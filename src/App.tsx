@@ -37,7 +37,14 @@ import {
 } from "./lib/quality";
 import { EntityPage, type EntityEntry } from "./pages/Entity";
 import { formatTime } from "./lib/format";
-import { debugLog, openLogFolder } from "./lib/log";
+import {
+  debugLog,
+  isLogLevel,
+  openLogFolder,
+  setLogLevel as apiSetLogLevel,
+  warnLog,
+  type LogLevel,
+} from "./lib/log";
 import { clearMediaSession, listenMediaControls, updateMediaSession } from "./lib/media";
 import { DetailPage } from "./pages/Detail";
 import { Explore } from "./pages/Explore";
@@ -87,6 +94,11 @@ function initialVolume(): number {
   if (raw === null) return 0.64;
   const saved = Number(raw);
   return Number.isFinite(saved) && saved >= 0 && saved <= 1 ? saved : 0.64;
+}
+
+function initialLogLevel(): LogLevel {
+  const saved = localStorage.getItem("decro.logLevel");
+  return saved && isLogLevel(saved) ? saved : "info";
 }
 
 const LAST_PLAYBACK_KEY = "decro.lastPlayback";
@@ -162,6 +174,7 @@ export default function App() {
   const [lowPower, setLowPower] = createSignal<boolean>(initialLowPower());
   const [coverAccent, setCoverAccent] = createSignal(storedBool("decro.coverAccent", true));
   const [showTranslation, setShowTranslation] = createSignal(storedBool("decro.translation", true));
+  const [logLevel, setLogLevel] = createSignal<LogLevel>(initialLogLevel());
   const [defaultQuality, setDefaultQuality] = createSignal<QualityLevel>(initialQuality());
   const [qualityOverrides, setQualityOverrides] = createSignal<Record<string, QualityLevel>>({});
   const [account, setAccount] = createSignal<Account | null>(null);
@@ -252,7 +265,7 @@ export default function App() {
       .then(() => rememberRecent(track))
       .catch((error) => {
         if (lastReportedPlayId === track.id) lastReportedPlayId = "";
-        debugLog("play report failed", {
+        warnLog("play report failed", {
           id: track.id,
           message: typeof error === "string" ? error : String(error),
         });
@@ -332,7 +345,7 @@ export default function App() {
       }
     } catch (error) {
       if (request !== catalogRequest) return;
-      debugLog("catalog load failed", { error: String(error) });
+      warnLog("catalog load failed", { error: String(error) });
       setCatalogError(typeof error === "string" ? error : "无法连接网易云，请检查网络");
     } finally {
       if (request === catalogRequest) setCatalogLoading(false);
@@ -718,7 +731,7 @@ export default function App() {
     });
     void audio.play().catch((error) => {
       const name = error instanceof DOMException ? error.name : "";
-      debugLog("audio play rejected", {
+      warnLog("audio play rejected", {
         name,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -1018,7 +1031,7 @@ export default function App() {
     audio.addEventListener("error", () => {
       audioFailed = true;
       setPlaying(false);
-      debugLog("audio error", {
+      warnLog("audio error", {
         id: current().id,
         code: audio?.error?.code ?? 0,
         message: audio?.error?.message ?? "",
@@ -1031,7 +1044,7 @@ export default function App() {
         debugLog("playback config ready", { base: config.base });
       })
       .catch((error) => {
-        debugLog("playback config failed", { error: String(error) });
+        warnLog("playback config failed", { error: String(error) });
         showToast("本地音频代理启动失败，请重启应用");
       });
   };
@@ -1067,6 +1080,12 @@ export default function App() {
 
   createEffect(() => {
     localStorage.setItem("decro.volume", String(volume()));
+  });
+
+  createEffect(() => {
+    const level = logLevel();
+    localStorage.setItem("decro.logLevel", level);
+    void apiSetLogLevel(level).catch(() => undefined);
   });
 
   createEffect(on(
@@ -1210,7 +1229,7 @@ export default function App() {
           else unlistenMedia = unlisten;
         })
         .catch((error) => {
-          debugLog("media control listen failed", { error: String(error) });
+          warnLog("media control listen failed", { error: String(error) });
         });
     }
     onCleanup(() => {
@@ -1407,6 +1426,8 @@ export default function App() {
                       onShowTranslation={setShowTranslation}
                       defaultQuality={defaultQuality()}
                       onDefaultQuality={handleDefaultQuality}
+                      logLevel={logLevel()}
+                      onLogLevel={setLogLevel}
                       account={account()}
                       onLogin={() => setLoginOpen(true)}
                       onLogout={() => void handleLogout()}

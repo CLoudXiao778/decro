@@ -1,6 +1,7 @@
 mod auth;
 mod libnetease;
 mod logger;
+mod memory;
 mod netease;
 mod portable;
 mod proxy;
@@ -9,6 +10,9 @@ mod state;
 
 use rand::RngCore;
 use state::{AppState, ProxyInfo};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 use tauri::WebviewWindowBuilder;
 
 fn random_token() -> String {
@@ -19,6 +23,9 @@ fn random_token() -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    std::panic::set_hook(Box::new(|info| {
+        logger::log("error", "panic", &info.to_string());
+    }));
     libnetease::init();
     let listener =
         std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind local audio proxy");
@@ -31,10 +38,39 @@ pub fn run() {
     });
     let proxy_state = state.clone();
 
+    let was_minimized = Arc::new(AtomicBool::new(false));
     tauri::Builder::default()
         .manage(state)
+        .on_window_event(move |window, event| {
+            if window.label() != "main" {
+                return;
+            }
+            if !matches!(
+                event,
+                tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(_)
+            ) {
+                return;
+            }
+            let minimized = window.is_minimized().unwrap_or(false);
+            if minimized && !was_minimized.swap(true, Ordering::Relaxed) {
+                logger::log("info", "memory", "window minimized");
+                let window = window.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(900));
+                    if window.is_minimized().unwrap_or(false) {
+                        memory::trim_working_set();
+                    }
+                });
+            } else if !minimized && was_minimized.swap(false, Ordering::Relaxed) {
+                logger::log("info", "memory", "window restored");
+                memory::log_stats("restored", "info");
+            }
+        })
         .setup(move |app| {
             let data_dir = portable::init(app.handle());
+            if let Ok(level) = std::fs::read_to_string(portable::log_level_path()) {
+                let _ = logger::set_level(level.trim());
+            }
             logger::init(portable::log_dir());
             logger::log(
                 "info",
@@ -57,19 +93,27 @@ pub fn run() {
                 .data_directory(portable::webview_dir())
                 .build()?;
             tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                memory::log_stats("startup", "info");
+                loop {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    memory::log_stats("periodic", "debug");
+                }
+            });
+            tauri::async_runtime::spawn(async move {
                 if listener.set_nonblocking(true).is_err() {
-                    logger::log("error", "proxy", "failed to set non-blocking listener");
+                    logger::log("warn", "proxy", "failed to set non-blocking listener");
                     return;
                 }
                 let listener = match tokio::net::TcpListener::from_std(listener) {
                     Ok(listener) => listener,
                     Err(error) => {
-                        logger::log("error", "proxy", &format!("invalid listener: {error}"));
+                        logger::log("warn", "proxy", &format!("invalid listener: {error}"));
                         return;
                     }
                 };
                 if let Err(error) = proxy::serve(listener, proxy_state).await {
-                    logger::log("error", "proxy", &format!("server exited: {error}"));
+                    logger::log("warn", "proxy", &format!("server exited: {error}"));
                 }
             });
             Ok(())
@@ -94,6 +138,7 @@ pub fn run() {
             netease::lyric,
             netease::like_song,
             netease::report_play_start,
+            set_log_level,
             netease::playback_config,
             open_song_page,
             open_playlist_page,
@@ -105,6 +150,13 @@ pub fn run() {
 #[tauri::command]
 fn debug_log(level: String, target: String, message: String) {
     logger::log(&level, &target, &message);
+}
+
+#[tauri::command]
+fn set_log_level(level: String) -> Result<(), String> {
+    logger::set_level(&level)?;
+    let _ = std::fs::write(portable::log_level_path(), level.trim());
+    Ok(())
 }
 
 #[tauri::command]

@@ -55,6 +55,10 @@ pub fn log_dir() -> PathBuf {
     data_dir().join("logs")
 }
 
+pub fn log_level_path() -> PathBuf {
+    data_dir().join("log-level")
+}
+
 pub fn webview_dir() -> PathBuf {
     data_dir().join("webview")
 }

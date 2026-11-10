@@ -1,6 +1,6 @@
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import { BrandMark } from "./CoverArt";
-import { debugLog } from "../lib/log";
+import { debugLog, warnLog } from "../lib/log";
 import { Icon } from "./Icon";
 import {
   getAuthStatus,
@@ -65,7 +65,7 @@ export function LoginModal(props: {
       setCookieText("");
       finishSuccess(next);
     } catch (error) {
-      debugLog("cookie import failed", {
+      warnLog("cookie import failed", {
         error: typeof error === "string" ? error : "unknown",
       });
       setImportError(typeof error === "string" ? error : "凭证导入失败，请检查后重试");
@@ -142,7 +142,7 @@ export function LoginModal(props: {
       }, 1800);
     } catch (error) {
       if (closed || request !== generation) return;
-      debugLog("qr start failed", {
+      warnLog("qr start failed", {
         error: typeof error === "string" ? error : "unknown",
       });
       setPhase("error");

@@ -1,7 +1,8 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Icon } from "../components/Icon";
 import type { Account } from "../lib/auth";
-import { qualityLabel, qualityOptions, type QualityLevel } from "../lib/quality";
+import { LOG_LEVELS, type LogLevel } from "../lib/log";
+import { qualityOptions, type QualityLevel } from "../lib/quality";
 
 function Toggle(props: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
@@ -30,6 +31,74 @@ function Picker(props: { value: string }) {
   );
 }
 
+function SettingsDropdown(props: {
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}) {
+  const [open, setOpen] = createSignal(false);
+  const [up, setUp] = createSignal(false);
+  let button!: HTMLButtonElement;
+
+  const currentLabel = () =>
+    props.options.find((option) => option.value === props.value)?.label ?? props.value;
+
+  onMount(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!open()) return;
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".settings-quality")) setOpen(false);
+    };
+    window.addEventListener("pointerdown", closeMenu);
+    onCleanup(() => window.removeEventListener("pointerdown", closeMenu));
+  });
+
+  return (
+    <div class="settings-quality" classList={{ "is-up": up() }}>
+      <button
+        ref={button}
+        class="settings-quality__button"
+        aria-haspopup="listbox"
+        aria-expanded={open()}
+        aria-label={props.ariaLabel}
+        onClick={() => {
+          setOpen((value) => {
+            const next = !value;
+            if (next) {
+              const rect = button?.getBoundingClientRect();
+              setUp(!!rect && rect.bottom + 260 > window.innerHeight);
+            }
+            return next;
+          });
+        }}
+      >
+        <span>{currentLabel()}</span>
+        <Icon name="chevron-down" size={15} />
+      </button>
+      <Show when={open()}>
+        <div class="settings-quality__menu" role="listbox" aria-label={props.ariaLabel}>
+          <For each={props.options}>
+            {(option) => (
+              <button
+                role="option"
+                aria-selected={props.value === option.value}
+                classList={{ "is-active": props.value === option.value }}
+                onClick={() => {
+                  props.onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
 export function SettingsPage(props: {
   theme: "dark" | "light";
   onTheme: (theme: "dark" | "light") => void;
@@ -43,25 +112,13 @@ export function SettingsPage(props: {
   onShowTranslation: (value: boolean) => void;
   defaultQuality: QualityLevel;
   onDefaultQuality: (value: QualityLevel) => void;
+  logLevel: LogLevel;
+  onLogLevel: (value: LogLevel) => void;
   account: Account | null;
   onLogin: () => void;
   onLogout: () => void;
   onOpenLogs: () => void;
 }) {
-  const [qualityOpen, setQualityOpen] = createSignal(false);
-  const [qualityUp, setQualityUp] = createSignal(false);
-  let qualityButton!: HTMLButtonElement;
-
-  onMount(() => {
-    const closeMenu = (event: PointerEvent) => {
-      if (!qualityOpen()) return;
-      const target = event.target as HTMLElement | null;
-      if (!target?.closest(".settings-quality")) setQualityOpen(false);
-    };
-    window.addEventListener("pointerdown", closeMenu);
-    onCleanup(() => window.removeEventListener("pointerdown", closeMenu));
-  });
-
   return (
     <div class="page page--settings-source">
       <header class="settings-source__top">
@@ -118,47 +175,12 @@ export function SettingsPage(props: {
             <b>默认音质</b>
             <small>每次播放时向网易云请求的音质；不可用时自动回退到较低档位。</small>
           </span>
-          <div class="settings-quality" classList={{ "is-up": qualityUp() }}>
-            <button
-              ref={qualityButton}
-              class="settings-quality__button"
-              aria-haspopup="listbox"
-              aria-expanded={qualityOpen()}
-              aria-label="默认音质"
-              onClick={() => {
-                setQualityOpen((value) => {
-                  const next = !value;
-                  if (next) {
-                    const rect = qualityButton?.getBoundingClientRect();
-                    setQualityUp(!!rect && rect.bottom + 260 > window.innerHeight);
-                  }
-                  return next;
-                });
-              }}
-            >
-              <span>{qualityLabel(props.defaultQuality)}</span>
-              <Icon name="chevron-down" size={15} />
-            </button>
-            <Show when={qualityOpen()}>
-              <div class="settings-quality__menu" role="listbox" aria-label="默认音质">
-                <For each={qualityOptions}>
-                  {(option) => (
-                    <button
-                      role="option"
-                      aria-selected={props.defaultQuality === option.value}
-                      classList={{ "is-active": props.defaultQuality === option.value }}
-                      onClick={() => {
-                        props.onDefaultQuality(option.value);
-                        setQualityOpen(false);
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </div>
+          <SettingsDropdown
+            value={props.defaultQuality}
+            options={qualityOptions}
+            onChange={(value) => props.onDefaultQuality(value as QualityLevel)}
+            ariaLabel="默认音质"
+          />
         </div>
       </div>
 
@@ -170,6 +192,22 @@ export function SettingsPage(props: {
             <small>在歌词下方显示可用翻译。</small>
           </span>
           <Toggle checked={props.showTranslation} onChange={props.onShowTranslation} label="显示翻译" />
+        </div>
+      </div>
+
+      <div class="settings-group-label">日志</div>
+      <div class="settings-source-list">
+        <div class="settings-source-row">
+          <span class="settings-source-row__text">
+            <b>日志级别</b>
+            <small>Debug 记录全部；Info 常规；Warn 仅非致命错误；Error 仅崩溃或无法继续；None 关闭日志。</small>
+          </span>
+          <SettingsDropdown
+            value={props.logLevel}
+            options={LOG_LEVELS}
+            onChange={(value) => props.onLogLevel(value as LogLevel)}
+            ariaLabel="日志级别"
+          />
         </div>
       </div>
 
