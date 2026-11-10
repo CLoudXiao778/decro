@@ -4,7 +4,7 @@ import { formatTime } from "../lib/format";
 import { CoverArt } from "./CoverArt";
 import { Icon } from "./Icon";
 import { VolumeBar } from "./ProgressBar";
-import { openSongPage, openSoundSettings } from "../lib/system";
+import { openSongPage } from "../lib/system";
 
 type Rect = { left: number; top: number; width: number; height: number; right: number; bottom: number };
 
@@ -120,16 +120,29 @@ export function FullPlayer(props: {
   const [menuOpen, setMenuOpen] = createSignal(false);
   const [sourceDock, setSourceDock] = createSignal<Rect | null>(null);
   const [sourceCover, setSourceCover] = createSignal<Rect | null>(null);
+  const [sourceControls, setSourceControls] = createSignal<{
+    play: Rect | null;
+    next: Rect | null;
+  }>({ play: null, next: null });
+  const [controlsReady, setControlsReady] = createSignal(true);
 
   let cover!: HTMLButtonElement;
+  let playButton!: HTMLButtonElement;
+  let nextButton!: HTMLButtonElement;
   let playerLayer!: HTMLDivElement;
   let lastFocused: HTMLElement | null = null;
   let clone!: HTMLDivElement;
   let lyricsViewport!: HTMLDivElement;
   let lyricsInner!: HTMLDivElement;
   let cloneAnim: Animation | null = null;
+  let controlClones: {
+    wrapper: HTMLDivElement;
+    animations: Animation[];
+    cleanup: () => void;
+  }[] = [];
   let fallbackTimer: number | undefined;
   let closeTimer: number | undefined;
+  let closing = false;
 
   const activeIndex = createMemo(() => {
     const lines = props.track.lyrics;
@@ -162,6 +175,151 @@ export function FullPlayer(props: {
       dock: toRect(dockEl?.getBoundingClientRect()),
       cover: toRect(coverEl?.getBoundingClientRect()),
     };
+  }
+
+  function readDockControls(): { play: Rect | null; next: Rect | null } {
+    return {
+      play: toRect(document.getElementById("dock-play")?.getBoundingClientRect()),
+      next: toRect(document.getElementById("dock-next")?.getBoundingClientRect()),
+    };
+  }
+
+  function radiusPx(element: HTMLElement, rect: Rect): number {
+    const raw = getComputedStyle(element).borderTopLeftRadius;
+    if (raw.endsWith("%")) {
+      return (Math.min(rect.width, rect.height) * parseFloat(raw)) / 100;
+    }
+    return parseFloat(raw) || 0;
+  }
+
+  function iconRect(element: HTMLElement): Rect | null {
+    const icon = element.querySelector("svg");
+    return icon ? toRect(icon.getBoundingClientRect()) : null;
+  }
+
+  function hideControlClones() {
+    for (const clone of controlClones) {
+      clone.animations.forEach((animation) => animation.cancel());
+      clone.cleanup();
+    }
+    controlClones = [];
+  }
+
+  function runControlClone(
+    fromElement: HTMLElement,
+    from: Rect,
+    toElement: HTMLElement,
+    to: Rect,
+    closing: boolean,
+  ): Promise<void> {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const duration = reduceMotion ? 0 : closing ? MORPH_CLOSE_MS : MORPH_OPEN_MS;
+    const easing = closing ? EASE_CLOSE : EASE_OPEN;
+    const fromStyle = getComputedStyle(fromElement);
+    const toStyle = getComputedStyle(toElement);
+    const fromIcon = iconRect(fromElement);
+    const toIcon = iconRect(toElement);
+    const targetIcon = toElement.querySelector("svg");
+    if (!targetIcon) return Promise.resolve();
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "morph-control";
+    wrapper.setAttribute("aria-hidden", "true");
+    wrapper.style.left = `${from.left}px`;
+    wrapper.style.top = `${from.top}px`;
+    wrapper.style.width = `${from.width}px`;
+    wrapper.style.height = `${from.height}px`;
+    wrapper.style.borderRadius = `${radiusPx(fromElement, from)}px`;
+    wrapper.style.backgroundColor = fromStyle.backgroundColor;
+    wrapper.style.color = fromStyle.color;
+    wrapper.style.boxShadow = closing ? "none" : toStyle.boxShadow;
+    const icon = targetIcon.cloneNode(true) as SVGElement;
+    icon.style.display = "block";
+    wrapper.appendChild(icon);
+    document.body.appendChild(wrapper);
+
+    const mainAnimation = wrapper.animate(
+      [
+        {
+          left: `${from.left}px`,
+          top: `${from.top}px`,
+          width: `${from.width}px`,
+          height: `${from.height}px`,
+          borderRadius: `${radiusPx(fromElement, from)}px`,
+          backgroundColor: fromStyle.backgroundColor,
+          color: fromStyle.color,
+        },
+        {
+          left: `${to.left}px`,
+          top: `${to.top}px`,
+          width: `${to.width}px`,
+          height: `${to.height}px`,
+          borderRadius: `${radiusPx(toElement, to)}px`,
+          backgroundColor: toStyle.backgroundColor,
+          color: toStyle.color,
+        },
+      ],
+      { duration, easing, fill: "both" },
+    );
+    const animations: Animation[] = [mainAnimation];
+    if (fromIcon && toIcon) {
+      animations.push(
+        icon.animate(
+          [
+            { transform: `scale(${fromIcon.width / Math.max(1, toIcon.width)})` },
+            { transform: "scale(1)" },
+          ],
+          { duration, easing, fill: "both" },
+        ),
+      );
+    }
+
+    let settled = false;
+    let timer: number | undefined;
+    let resolveDone!: () => void;
+    const done = new Promise<void>((resolve) => {
+      resolveDone = resolve;
+    });
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      if (timer) window.clearTimeout(timer);
+      wrapper.remove();
+      controlClones = controlClones.filter((item) => item !== entry);
+      resolveDone();
+    };
+    const entry = { wrapper, animations, cleanup };
+    controlClones.push(entry);
+    mainAnimation.finished.then(cleanup, cleanup);
+    timer = window.setTimeout(cleanup, duration + 80);
+    return done;
+  }
+
+  function runControlMorph(closing: boolean): Promise<void> {
+    hideControlClones();
+    const cached = sourceControls();
+    const pairs = [
+      {
+        dock: document.getElementById("dock-play"),
+        player: playButton,
+        dockRect: cached.play,
+      },
+      {
+        dock: document.getElementById("dock-next"),
+        player: nextButton,
+        dockRect: cached.next,
+      },
+    ];
+    return Promise.all(
+      pairs.map(({ dock, player, dockRect }) => {
+        if (!dock || !player || !dockRect) return Promise.resolve();
+        const playerRect = toRect(player.getBoundingClientRect());
+        if (!playerRect) return Promise.resolve();
+        return closing
+          ? runControlClone(player, playerRect, dock, dockRect, true)
+          : runControlClone(dock, dockRect, player, playerRect, false);
+      }),
+    ).then(() => undefined);
   }
 
   function runClone(from: Rect, to: Rect, closing: boolean): Promise<void> {
@@ -203,12 +361,16 @@ export function FullPlayer(props: {
 
   function openPlayer() {
     window.clearTimeout(closeTimer);
+    closing = false;
     lastFocused = document.activeElement as HTMLElement | null;
     setMenuOpen(false);
     setHidden(false);
+    hideControlClones();
     const rects = readRects();
     setSourceDock(rects.dock);
     setSourceCover(rects.cover);
+    setSourceControls(readDockControls());
+    setControlsReady(false);
     setPreparing(true);
     setExpanded(false);
     // Keep the real cover hidden until the clone lands. Showing it underneath
@@ -226,17 +388,22 @@ export function FullPlayer(props: {
       const dest = toRect(cover.getBoundingClientRect());
       const src = rects.cover ?? rects.dock;
       if (src && dest) {
+        void runControlMorph(false).then(() => {
+          if (props.open) setControlsReady(true);
+        });
         runClone(src, dest, false).then(() => {
           if (props.open) setHeroReady(true);
         });
         fallbackTimer = window.setTimeout(() => {
           if (props.open) {
             setHeroReady(true);
+            setControlsReady(true);
             hideClone();
           }
         }, 1100);
       } else {
         setHeroReady(true);
+        setControlsReady(true);
       }
     });
 
@@ -266,6 +433,7 @@ export function FullPlayer(props: {
   }
 
   function hideClone() {
+    hideControlClones();
     if (!clone) return;
     clone.style.visibility = "hidden";
     // Remove the compositor layer entirely. A hidden-but-composited cover can
@@ -284,7 +452,10 @@ export function FullPlayer(props: {
 
   function closePlayer() {
     setMenuOpen(false);
-    if (!visible()) return;
+    if (!visible() || closing) return;
+    closing = true;
+    setControlsReady(false);
+    void runControlMorph(true);
     // Reverse of open: fly the real player cover back to the dock, not the
     // other way around. The old direction could leave a full-size clone on
     // top of the page after the panel closed.
@@ -501,6 +672,7 @@ export function FullPlayer(props: {
     cloneAnim?.cancel();
     window.clearTimeout(fallbackTimer);
     window.clearTimeout(closeTimer);
+    hideControlClones();
     hideClone();
   });
 
@@ -526,6 +698,7 @@ export function FullPlayer(props: {
           "is-visible": visible(),
           "is-expanded": expanded(),
           "is-preparing": preparing(),
+          "is-controls-ready": controlsReady(),
           "is-closing": !props.open,
           "is-lyrics": lyricsFocus(),
         }}
@@ -558,19 +731,9 @@ export function FullPlayer(props: {
             <span class="player-top__source">网易云音乐</span>
           </div>
           <div class="player-top__actions">
-            <span class="player-quality" title="歌曲标称音质；实际档位以网易云可用音源为准">{props.track.quality ?? "SQ"}</span>
-            <button
-              class="icon-btn"
-              title="打开 Windows 声音输出设置"
-              aria-label="声音输出设置"
-              onClick={() => {
-                void openSoundSettings().catch((error) =>
-                  props.onToast(typeof error === "string" ? error : "打开声音设置失败"),
-                );
-              }}
-            >
-              <Icon name="cast" size={18} />
-            </button>
+            <span class="player-quality" title="歌曲标称音质；实际档位以网易云可用音源为准">
+              {props.track.quality ?? "SQ"}
+            </span>
           </div>
         </div>
 
@@ -790,10 +953,21 @@ export function FullPlayer(props: {
               <button class="player-skip" aria-label="上一首" title="上一首" onClick={props.onPrev}>
                 <Icon name="prev" size={24} />
               </button>
-              <button class="player-source-play" aria-label={props.playing ? "暂停" : "播放"} onClick={props.onTogglePlay}>
+              <button
+                ref={playButton}
+                class="player-source-play"
+                aria-label={props.playing ? "暂停" : "播放"}
+                onClick={props.onTogglePlay}
+              >
                 <Icon name={props.playing ? "pause-fill" : "play-fill"} size={30} />
               </button>
-              <button class="player-skip" aria-label="下一首" title="下一首" onClick={props.onNext}>
+              <button
+                ref={nextButton}
+                class="player-skip player-skip--next"
+                aria-label="下一首"
+                title="下一首"
+                onClick={props.onNext}
+              >
                 <Icon name="next" size={24} />
               </button>
             </div>

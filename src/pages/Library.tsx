@@ -32,6 +32,21 @@ export function Library(props: {
   const [playlistsExpanded, setPlaylistsExpanded] = createSignal(false);
   const recentLimit = 10;
   const playlistLimit = 8;
+  const pinKey = "decro.pinnedPlaylists";
+
+  const readPinned = (): string[] => {
+    try {
+      const raw = localStorage.getItem(pinKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((id): id is string => typeof id === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [pinnedPlaylists, setPinnedPlaylists] = createSignal<string[]>(readPinned());
 
   const readUsage = (): Record<string, number> => {
     try {
@@ -43,23 +58,51 @@ export function Library(props: {
     }
   };
 
-  const commonPlaylists = createMemo(() => {
+  const isPinned = (id: string) => pinnedPlaylists().includes(id);
+
+  const togglePinned = (id: string) => {
+    const next = isPinned(id)
+      ? pinnedPlaylists().filter((item) => item !== id)
+      : [...pinnedPlaylists(), id];
+    setPinnedPlaylists(next);
+    try {
+      localStorage.setItem(pinKey, JSON.stringify(next));
+    } catch {
+      /* ignore local pin persistence */
+    }
+  };
+
+  const pinnedItems = createMemo(() => {
+    const byId = new Map(props.playlists.map((playlist) => [playlist.id, playlist]));
+    return pinnedPlaylists()
+      .map((id) => byId.get(id))
+      .filter((playlist): playlist is Playlist => Boolean(playlist));
+  });
+
+  const usedPlaylists = createMemo(() => {
     const usage = readUsage();
-    return [...props.playlists]
+    const pinned = new Set(pinnedPlaylists());
+    return props.playlists
+      .filter((playlist) => !pinned.has(playlist.id))
       .sort(
         (a, b) =>
           (usage[b.id] ?? 0) - (usage[a.id] ?? 0) ||
           (b.playCount ?? 0) - (a.playCount ?? 0) ||
           (b.updateTime ?? 0) - (a.updateTime ?? 0),
-      )
-      .slice(0, playlistLimit);
+      );
   });
+
+  const commonLimit = createMemo(() => Math.max(playlistLimit, pinnedItems().length));
+
+  const commonPlaylists = createMemo(() =>
+    [...pinnedItems(), ...usedPlaylists()].slice(0, commonLimit()),
+  );
 
   const recentItems = createMemo(() =>
     recentExpanded() ? props.recent : props.recent.slice(0, recentLimit),
   );
   const playlistItems = createMemo(() =>
-    playlistsExpanded() ? props.playlists : commonPlaylists(),
+    playlistsExpanded() ? [...pinnedItems(), ...usedPlaylists()] : commonPlaylists(),
   );
 
   const scrollTo = (id: string) => {
@@ -170,11 +213,16 @@ export function Library(props: {
           <div class="source-section__head">
             <h2>
               我的歌单
-              <span class="source-section__badge">{playlistsExpanded() ? "全部" : "常用"}</span>
+              <span
+                class="source-section__badge"
+                title="置顶歌单优先，其余按打开次数排序"
+              >
+                {playlistsExpanded() ? "全部" : "常用"}
+              </span>
             </h2>
             <div class="source-section__tools">
               <span class="source-section__note">{props.playlists.length} 个</span>
-              <Show when={props.playlists.length > playlistLimit}>
+              <Show when={props.playlists.length > commonLimit()}>
                 <button
                   class="source-section__more"
                   onClick={() => setPlaylistsExpanded((value) => !value)}
@@ -185,6 +233,9 @@ export function Library(props: {
               </Show>
             </div>
           </div>
+          <Show when={props.playlists.length > 0}>
+            <p class="library-playlist-hint">置顶优先，其余按打开次数排序；悬停封面点图钉可置顶。</p>
+          </Show>
           <Show
             when={props.playlists.length > 0}
             fallback={<div class="library-empty">登录后创建的歌单和收藏的歌单会出现在这里。</div>}
@@ -192,21 +243,37 @@ export function Library(props: {
             <Shelf class={`shelf--playlist ${playlistsExpanded() ? "shelf--wrap" : ""}`}>
               <For each={playlistItems()}>
                 {(playlist) => (
-                  <button
-                    class="shelf-tile"
-                    onClick={(event) => props.onOpenPlaylist(playlist, event.currentTarget)}
-                  >
-                    <span class="shelf-tile__cover shelf-tile__cover--square">
-                      <CoverArt
-                        palette={playlist.palette}
-                        seed={playlist.coverSeed ?? 0}
-                        url={playlist.coverUrl}
-                        showLabel={false}
-                      />
-                    </span>
-                    <span class="shelf-tile__title">{playlist.title}</span>
-                    <span class="shelf-tile__meta">{playlist.subtitle}</span>
-                  </button>
+                  <div class="shelf-tile shelf-tile--playlist">
+                    <button
+                      class="shelf-tile__open"
+                      onClick={(event) => props.onOpenPlaylist(playlist, event.currentTarget)}
+                    >
+                      <span class="shelf-tile__cover shelf-tile__cover--square">
+                        <CoverArt
+                          palette={playlist.palette}
+                          seed={playlist.coverSeed ?? 0}
+                          url={playlist.coverUrl}
+                          showLabel={false}
+                        />
+                      </span>
+                      <span class="shelf-tile__title">{playlist.title}</span>
+                      <span class="shelf-tile__meta">{playlist.subtitle}</span>
+                    </button>
+                    <button
+                      class="shelf-tile__pin"
+                      classList={{ "is-pinned": isPinned(playlist.id) }}
+                      aria-label={
+                        isPinned(playlist.id)
+                          ? `取消置顶 ${playlist.title}`
+                          : `置顶 ${playlist.title}`
+                      }
+                      aria-pressed={isPinned(playlist.id)}
+                      title={isPinned(playlist.id) ? "取消置顶" : "置顶到常用歌单"}
+                      onClick={() => togglePinned(playlist.id)}
+                    >
+                      <Icon name="pin" size={14} />
+                    </button>
+                  </div>
                 )}
               </For>
             </Shelf>

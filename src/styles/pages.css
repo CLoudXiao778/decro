@@ -2630,6 +2630,66 @@
   text-align: left;
   scroll-snap-align: start;
 }
+.shelf-tile--playlist {
+  position: relative;
+}
+.shelf-tile__open {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+.shelf-tile__pin {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.86);
+  opacity: 0;
+  transform: translateY(-3px);
+  backdrop-filter: blur(8px);
+  transition:
+    opacity var(--dur-micro) var(--ease-standard),
+    transform var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+.shelf-tile:hover .shelf-tile__pin,
+.shelf-tile__pin:focus-visible,
+.shelf-tile__pin.is-pinned {
+  opacity: 1;
+  transform: translateY(0);
+}
+.shelf-tile__pin:hover {
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+}
+.shelf-tile__pin.is-pinned {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--primary);
+}
+.shelf-tile__pin.is-pinned:hover {
+  background: #fff;
+  color: var(--primary);
+}
+.library-playlist-hint {
+  margin: -4px 0 12px;
+  color: var(--on-surface-3);
+  font-size: 11px;
+}
+@media (hover: none) {
+  .shelf-tile__pin {
+    opacity: 1;
+    transform: none;
+  }
+}
 .shelf-tile__cover {
   position: relative;
   display: block;

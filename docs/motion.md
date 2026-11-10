@@ -21,9 +21,9 @@ Cirro 的动效不是装饰，而是“同一个物体在连续变形”的叙�
 | 主题/颜色 | 320–600ms | Standard |
 | 页面进入 | 220ms | Emphasized Decelerate |
 | 页面退出 | 90–160ms | Standard / Emphasized |
-| dock 展开为播放页 | 420ms | Emphasized Decelerate |
-| 播放页收起 | 320ms | Emphasized |
-| 共享封面 | 360ms | Emphasized / Emphasized Decelerate |
+| dock 展开为播放页 | 700ms | Emphasized Decelerate |
+| 播放页收起 | 640ms | Emphasized |
+| 共享封面 / 播放按钮 | 700ms 展开 / 640ms 收起 | Emphasized / Emphasized Decelerate |
 | 播放页面板淡入 | 200ms | Emphasized Decelerate |
 | 浮层进入 | 240ms | Emphasized Decelerate |
 | 浮层退出 | 180ms | Emphasized |
@@ -73,11 +73,12 @@ Cirro 的动效不是装饰，而是“同一个物体在连续变形”的叙�
 
 - 点击 dock 后捕获 **dock 矩形**与 **dock 封面矩形**；
 - 播放页是一个 `position: fixed` 的层，初始 `clip-path: inset(... round 22px)` 精确等于 dock 矩形；
-- 下一帧把 `clip-path` 过渡到 `inset(0 round 0)`，420ms Emphasized Decelerate；
-- 同时创建一个 `morph-cover` 克隆，从 dock 封面矩形 **FLIP** 到播放页大封面矩形，360ms；
+- 下一帧把 `clip-path` 过渡到 `inset(0 round 0)`，700ms Emphasized Decelerate；
+- 同时创建一个 `morph-cover` 克隆，从 dock 封面矩形 **FLIP** 到播放页大封面矩形，700ms；
+- 播放/暂停与下一首按钮同步创建 `morph-control` 克隆，从 dock 按钮矩形过渡到播放页按钮矩形；关闭时反向。尺寸、圆角、背景色和图标一起过渡，时长与封面一致。
 - 动画结束后克隆隐藏，真实大封面淡入 200ms；
 - 内容层在面板展开后淡入/上浮；
-- 关闭时反向：面板 clip 回 dock 矩形 320ms，克隆从大封面飞回 dock 封面，结束后卸载。
+- 关闭时反向：面板 clip 回 dock 矩形 640ms，克隆从大封面飞回 dock 封面，结束后卸载。
 
 为什么不用 View Transitions API：WebView2 版本差异较大，且面板 clip 与封面 hero 需要共用同一条时间线；自定义 FLIP 更可控。
 

@@ -40,13 +40,14 @@ export function PlayerDock(props: {
 
       <div class="source-dock__actions">
         <button
+          id="dock-play"
           class="source-dock__button"
           aria-label={props.playing ? "暂停" : "播放"}
           onClick={props.onTogglePlay}
         >
           <Icon name={props.playing ? "pause-fill" : "play-fill"} size={24} />
         </button>
-        <button class="source-dock__button" aria-label="下一首" onClick={props.onNext}>
+        <button id="dock-next" class="source-dock__button" aria-label="下一首" onClick={props.onNext}>
           <Icon name="next" size={24} />
         </button>
       </div>

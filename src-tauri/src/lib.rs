@@ -78,7 +78,6 @@ pub fn run() {
             netease::lyric,
             netease::like_song,
             netease::playback_config,
-            open_sound_settings,
             open_song_page,
             open_playlist_page,
         ])
@@ -94,22 +93,6 @@ fn debug_log(level: String, target: String, message: String) {
 #[tauri::command]
 fn open_log_folder() -> Result<(), String> {
     logger::open_folder()
-}
-
-#[tauri::command]
-fn open_sound_settings() -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/C", "start", "", "ms-settings:sound"])
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| format!("打开声音设置失败: {error}"))
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        Err("声音输出设置仅支持 Windows".to_string())
-    }
 }
 
 #[tauri::command]
