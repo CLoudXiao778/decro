@@ -11,18 +11,17 @@
 //!   webview/EBWebView/...   (WebView2 profile: localStorage, cache, cookies)
 //! ```
 //!
-//! The one-time migration from the old AppData layout is intentionally kept
-//! only for this release; remove `migrate_*` helpers in the next version.
+//! The one-time migration from the old AppData layout shipped only in 0.5.8
+//! and has been removed. Upgrades from 0.5.9 onward are just an executable
+//! replacement; the `data/` directory stays untouched.
 
 use std::fs;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use tauri::{AppHandle, Manager};
 
 const AUTH_FILE: &str = "netease-auth.bin";
-const LEGACY_IDENTIFIER: &str = "io.github.cloudxiao778.cirrodesktop";
 
 static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
 
@@ -38,9 +37,6 @@ pub fn init(app: &AppHandle) -> PathBuf {
 
     let _ = fs::create_dir_all(&dir);
     let _ = DATA_DIR.set(dir.clone());
-
-    migrate_auth(app, &dir);
-    migrate_webview_storage(app, &dir);
     dir
 }
 
@@ -74,86 +70,4 @@ fn portable_data_dir() -> Option<PathBuf> {
     fs::write(&probe, b"ok").ok()?;
     let _ = fs::remove_file(probe);
     Some(dir)
-}
-
-fn appdata_candidates(app: &AppHandle, file: &str) -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-    if let Ok(current) = app.path().app_data_dir() {
-        paths.push(current.join(file));
-        if let Some(parent) = current.parent() {
-            paths.push(parent.join(LEGACY_IDENTIFIER).join(file));
-        }
-    }
-    paths
-}
-
-fn localdata_candidates(app: &AppHandle) -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-    if let Ok(current) = app.path().app_local_data_dir() {
-        paths.push(current.clone());
-        if let Some(parent) = current.parent() {
-            paths.push(parent.join(LEGACY_IDENTIFIER));
-        }
-    }
-    paths.sort();
-    paths.dedup();
-    paths
-}
-
-fn migrate_auth(app: &AppHandle, data_dir: &Path) {
-    let target = data_dir.join(AUTH_FILE);
-    if target.exists() {
-        return;
-    }
-    for source in appdata_candidates(app, AUTH_FILE) {
-        if !source.is_file() {
-            continue;
-        }
-        if let Some(parent) = target.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        if fs::copy(&source, &target).is_ok() {
-            eprintln!("[decro][portable] migrated auth from {}", source.display());
-            return;
-        }
-    }
-}
-
-fn migrate_webview_storage(app: &AppHandle, data_dir: &Path) {
-    let target = data_dir
-        .join("webview")
-        .join("EBWebView")
-        .join("Default")
-        .join("Local Storage");
-    if target.exists() {
-        return;
-    }
-    for root in localdata_candidates(app) {
-        let source = root.join("EBWebView").join("Default").join("Local Storage");
-        if !source.is_dir() {
-            continue;
-        }
-        if copy_dir_all(&source, &target).is_ok() {
-            eprintln!(
-                "[decro][portable] migrated webview storage from {}",
-                source.display()
-            );
-            return;
-        }
-    }
-}
-
-fn copy_dir_all(source: &Path, target: &Path) -> io::Result<()> {
-    fs::create_dir_all(target)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let file_type = entry.file_type()?;
-        let destination = target.join(entry.file_name());
-        if file_type.is_dir() {
-            copy_dir_all(&entry.path(), &destination)?;
-        } else if file_type.is_file() {
-            fs::copy(entry.path(), destination)?;
-        }
-    }
-    Ok(())
 }

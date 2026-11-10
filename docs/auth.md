@@ -94,8 +94,9 @@
 - 启动恢复：`auth_status` 读取并解密文件，然后请求账号资料验证；失效则返回未登录。
 - 0.5.8 首次启动会把旧版 `%APPDATA%\io.github.cloudxiao778.decrodesktop\netease-auth.bin`
   （以及更早的 `cirrodesktop` 标识目录）复制到 portable 的 `data\netease-auth.bin`。
-  该一次性迁移只在本版保留，后续版本移除。
-- 若自动迁移失败，可手动把旧文件复制到 `<应用目录>\data\netease-auth.bin`。
+  0.5.8 是最后一个包含自动迁移的版本；0.5.9 起移除迁移代码。
+- 若 0.5.8 自动迁移失败，或从 0.5.7 及更早直接升级到 0.5.9+，可手动把旧文件复制到
+  `<应用目录>\data\netease-auth.bin`。
 - 登录凭证仍是 DPAPI 密文，复制到其他 Windows 用户或电脑无法解密。
 - 非 Windows 开发构建不把凭证写盘：`protect` 返回错误，扫码/导入的登录仅在当前进程内有效。
   公开发布只构建 Windows。

@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与语义化版本。
 
+## [Unreleased]
+
+### Removed
+
+- 移除 0.5.8 的一次性 AppData 自动迁移代码。0.5.9 起 portable 升级只需替换 exe；从 0.5.7 及更早直接升级的用户仍需按文档手动复制一次 `data\`。
+
+### Planned
+
+- 评论、下载/离线、播客/MV、云盘。
+- 系统托盘、登录状态与主窗口播放状态同步。
+- 更完整的歌单管理（创建、收藏、排序）与逐字歌词。
+
 ## [0.5.8] - 2026-11-10
 
 改为 portable 数据目录，并补齐播放状态、音量和音质显示。
@@ -26,14 +38,6 @@
 - SHA256（portable）：`da245cca5c962e7733984d7bbc0b1db58cb81424c7cca933e980ef4603268a27`。
 - 发布 Windows 10/11 x64 NSIS 安装包 `v0.5.8`，约 **2.52 MiB**（2,647,504 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
 - SHA256（NSIS）：`8a1c4976fc077c746846e8fadc515bf581ecf99a3d4d14ec89c591da83ec40bf`。
-
-## [Unreleased]
-
-### Planned
-
-- 评论、下载/离线、播客/MV、云盘。
-- 系统托盘、登录状态与主窗口播放状态同步。
-- 更完整的歌单管理（创建、收藏、排序）与逐字歌词。
 
 ## [0.5.7] - 2026-11-10
 

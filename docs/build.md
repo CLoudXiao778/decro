@@ -124,8 +124,9 @@ data/
 ```
 
 - 升级时只覆盖 `Decro Desktop.exe`，保留 `data\`。
-- 0.5.8 首次启动会把旧版 AppData 的 `netease-auth.bin` 和
-  `EBWebView/Default/Local Storage` 复制到 portable `data\`；迁移仅本版保留。
+- 0.5.8 是最后一个带自动迁移的版本：首次启动会把旧版 AppData 的
+  `netease-auth.bin` 和 `EBWebView/Default/Local Storage` 复制到 portable `data\`。
+  0.5.9 起移除迁移代码，后续升级只需替换 exe 并保留 `data\`。
 - `tauri.conf.json` 的主窗口设置 `create: false`，由 Rust 在 setup 中用
   `WebviewWindowBuilder::data_directory(data/webview)` 手动创建，确保 WebView2 的
   localStorage/缓存也落在 portable 目录。

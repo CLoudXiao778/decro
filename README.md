@@ -22,11 +22,11 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 - `data\webview\`：WebView2 配置、localStorage（主题、音量、上次播放、音质、歌单置顶等）。
 - `data\logs\decro.log`：日志。
 - 升级：退出应用，用新版 zip 中的 `Decro Desktop.exe` 覆盖旧 exe，不要删除 `data\`。
-- 0.5.8 首次启动会自动尝试从旧版 AppData 迁移登录和设置；该迁移逻辑只在本版保留，后续版本移除。
+- **0.5.8 是最后一个包含自动迁移的版本**；0.5.9 起移除迁移代码，升级只需替换 exe。若从 0.5.7 或更早直接升级到 0.5.9+，请按下面的手动步骤复制一次。
 
 ### 从旧版手动迁移
 
-若自动迁移没有生效，先退出应用，再复制：
+0.5.8 自动迁移失败，或从 0.5.7 及更早直接升级到 0.5.9+ 时，先退出应用，再复制：
 
 1. `%APPDATA%\io.github.cloudxiao778.decrodesktop\netease-auth.bin`
    → `<应用目录>\data\netease-auth.bin`
