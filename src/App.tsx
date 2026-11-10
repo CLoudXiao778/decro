@@ -82,18 +82,74 @@ function initialQuality(): QualityLevel {
   return saved && isQualityLevel(saved) ? saved : "auto";
 }
 
+const LAST_PLAYBACK_KEY = "decro.lastPlayback";
+
+type StoredPlayback = {
+  track: Track;
+  queue: Track[];
+  progress: number;
+  sourceId: string;
+};
+
+function isStoredTrack(value: unknown): value is Track {
+  if (!value || typeof value !== "object") return false;
+  const track = value as Track;
+  return typeof track.id === "string" && typeof track.title === "string";
+}
+
+function readLastPlayback(): StoredPlayback | null {
+  try {
+    const raw = localStorage.getItem(LAST_PLAYBACK_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Partial<StoredPlayback> | null;
+    if (!data || !isStoredTrack(data.track)) return null;
+    const queue = Array.isArray(data.queue)
+      ? data.queue.filter(isStoredTrack)
+      : [];
+    const progress =
+      typeof data.progress === "number" && Number.isFinite(data.progress)
+        ? Math.max(
+            0,
+            Math.min(
+              data.progress,
+              data.track.durationSec > 0 ? data.track.durationSec : data.progress,
+            ),
+          )
+        : 0;
+    return {
+      track: data.track,
+      queue,
+      progress,
+      sourceId: typeof data.sourceId === "string" ? data.sourceId : "0",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   migrateLocalSettings();
+  const restoredPlayback = readLastPlayback();
   const [page, setPage] = createSignal<Page>("explore");
   const [detail, setDetail] = createSignal<Playlist | null>(null);
   const [detailOrigin, setDetailOrigin] = createSignal<DOMRect | null>(null);
   const [detailOnTop, setDetailOnTop] = createSignal(false);
   const [entityStack, setEntityStack] = createSignal<EntityEntry[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
-  const [current, setCurrent] = createSignal<Track>(mockTracks[0]);
-  const [queue, setQueue] = createSignal<Track[]>(isTauri() ? [] : mockTracks);
-  const [playing, setPlaying] = createSignal(!isTauri());
-  const [progress, setProgress] = createSignal(0);
+  const [current, setCurrent] = createSignal<Track>(
+    restoredPlayback?.track ?? mockTracks[0],
+  );
+  const [queue, setQueue] = createSignal<Track[]>(
+    restoredPlayback?.queue.length
+      ? restoredPlayback.queue
+      : isTauri()
+        ? restoredPlayback
+          ? [restoredPlayback.track]
+          : []
+        : mockTracks,
+  );
+  const [playing, setPlaying] = createSignal(!isTauri() && !restoredPlayback);
+  const [progress, setProgress] = createSignal(restoredPlayback?.progress ?? 0);
   const [volume, setVolume] = createSignal(0.64);
   const [theme, setTheme] = createSignal<"dark" | "light">(storedTheme());
   const [lowPower, setLowPower] = createSignal<boolean>(initialLowPower());
@@ -120,14 +176,16 @@ export default function App() {
   let mainScroll!: HTMLDivElement;
   let toastTimer: number | undefined;
   let audio: HTMLAudioElement | null = null;
-  let userStarted = false;
+  let userStarted = !!restoredPlayback;
   let sessionEpoch = 0;
   let catalogRequest = 0;
   let lyricRequest = 0;
   let pendingSeek: number | null = null;
+  let pendingRestoreProgress = restoredPlayback?.progress ?? 0;
+  let restoredTrackId = restoredPlayback?.track.id ?? "";
   let audioFailed = false;
   let lastReportedPlayId = "";
-  let playSourceId = "0";
+  let playSourceId = restoredPlayback?.sourceId ?? "0";
   let playRequest = 0;
   let entityKey = 0;
   const entityScrollStack: number[] = [];
@@ -158,6 +216,25 @@ export default function App() {
       [track, ...list.filter((item) => item.id !== track.id)].slice(0, 60);
     setHome((value) => (value ? { ...value, recent: merge(value.recent) } : value));
     setLibrary((value) => (value ? { ...value, recent: merge(value.recent) } : value));
+  };
+
+  const saveLastPlayback = () => {
+    if (isTauri() && !isRealTrack(current())) return;
+    try {
+      const track = current();
+      const rest = queue().filter((item) => item.id !== track.id);
+      localStorage.setItem(
+        LAST_PLAYBACK_KEY,
+        JSON.stringify({
+          track,
+          queue: [track, ...rest].slice(0, 60),
+          progress: Math.max(0, progress()),
+          sourceId: playSourceId,
+        }),
+      );
+    } catch {
+      /* localStorage may be unavailable */
+    }
   };
 
   const reportCurrentPlayStart = () => {
@@ -842,6 +919,13 @@ export default function App() {
     setQueue([]);
     setCurrent(mockTracks[0]);
     setProgress(0);
+    pendingRestoreProgress = 0;
+    restoredTrackId = "";
+    try {
+      localStorage.removeItem(LAST_PLAYBACK_KEY);
+    } catch {
+      /* ignore */
+    }
     if (audio) {
       audio.pause();
       audio.removeAttribute("src");
@@ -974,6 +1058,26 @@ export default function App() {
     localStorage.setItem("decro.defaultQuality", defaultQuality());
   });
 
+  createEffect(on(
+    () => current().id,
+    () => {
+      queueMicrotask(saveLastPlayback);
+    },
+    { defer: true },
+  ));
+
+  onMount(() => {
+    const save = () => saveLastPlayback();
+    const timer = window.setInterval(save, 5000);
+    window.addEventListener("beforeunload", save);
+    window.addEventListener("pagehide", save);
+    onCleanup(() => {
+      window.clearInterval(timer);
+      window.removeEventListener("beforeunload", save);
+      window.removeEventListener("pagehide", save);
+    });
+  });
+
   createEffect(() => {
     if (isTauri()) return;
     if (!playing()) return;
@@ -1001,7 +1105,10 @@ export default function App() {
       if (!audio || !playback()) return;
       if (!isRealTrack(current())) return;
       audioFailed = false;
-      pendingSeek = null;
+      const restore =
+        pendingRestoreProgress > 0 && current().id === restoredTrackId;
+      pendingSeek = restore ? pendingRestoreProgress : null;
+      if (restore) pendingRestoreProgress = 0;
       debugLog("audio source set", {
         id: current().id,
         base: playback()!.base,
@@ -1065,6 +1172,7 @@ export default function App() {
   onMount(() => {
     debugLog("app mounted", { tauri: isTauri() });
     initAudio();
+    if (restoredPlayback && isRealTrack(current())) void loadLyrics(current());
     void loadCatalog();
 
     let unlistenMedia: (() => void) | undefined;
