@@ -49,7 +49,7 @@ import { SettingsPage } from "./pages/Settings";
 export type Page = "explore" | "search" | "library" | "podcast" | "settings";
 
 function migrateLocalSettings() {
-  for (const key of ["theme", "lowPower", "coverAccent", "translation"]) {
+  for (const key of ["theme", "lowPower", "coverAccent", "translation", "volume"]) {
     const legacy = localStorage.getItem(`cirro.${key}`);
     if (legacy === null) continue;
     if (localStorage.getItem(`decro.${key}`) === null) {
@@ -80,6 +80,13 @@ function storedBool(key: string, fallback: boolean): boolean {
 function initialQuality(): QualityLevel {
   const saved = localStorage.getItem("decro.defaultQuality");
   return saved && isQualityLevel(saved) ? saved : "auto";
+}
+
+function initialVolume(): number {
+  const raw = localStorage.getItem("decro.volume");
+  if (raw === null) return 0.64;
+  const saved = Number(raw);
+  return Number.isFinite(saved) && saved >= 0 && saved <= 1 ? saved : 0.64;
 }
 
 const LAST_PLAYBACK_KEY = "decro.lastPlayback";
@@ -150,7 +157,7 @@ export default function App() {
   );
   const [playing, setPlaying] = createSignal(!isTauri() && !restoredPlayback);
   const [progress, setProgress] = createSignal(restoredPlayback?.progress ?? 0);
-  const [volume, setVolume] = createSignal(0.64);
+  const [volume, setVolume] = createSignal(initialVolume());
   const [theme, setTheme] = createSignal<"dark" | "light">(storedTheme());
   const [lowPower, setLowPower] = createSignal<boolean>(initialLowPower());
   const [coverAccent, setCoverAccent] = createSignal(storedBool("decro.coverAccent", true));
@@ -1056,6 +1063,10 @@ export default function App() {
 
   createEffect(() => {
     localStorage.setItem("decro.defaultQuality", defaultQuality());
+  });
+
+  createEffect(() => {
+    localStorage.setItem("decro.volume", String(volume()));
   });
 
   createEffect(on(
