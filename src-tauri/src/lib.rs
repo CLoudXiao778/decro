@@ -13,7 +13,7 @@ use state::{AppState, ProxyInfo};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::WebviewWindowBuilder;
+use tauri::{Manager, WebviewWindowBuilder};
 
 fn random_token() -> String {
     let mut bytes = [0u8; 24];
@@ -55,14 +55,22 @@ pub fn run() {
             if minimized && !was_minimized.swap(true, Ordering::Relaxed) {
                 logger::log("info", "memory", "window minimized");
                 let window = window.clone();
+                let webview_window = window.app_handle().get_webview_window("main");
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(900));
                     if window.is_minimized().unwrap_or(false) {
-                        memory::trim_working_set();
+                        if let Some(webview) = webview_window {
+                            memory::set_webview_suspended(&webview, true);
+                        }
+                        std::thread::sleep(Duration::from_millis(350));
+                        memory::trim_working_set("minimize", "info");
                     }
                 });
             } else if !minimized && was_minimized.swap(false, Ordering::Relaxed) {
                 logger::log("info", "memory", "window restored");
+                if let Some(webview) = window.app_handle().get_webview_window("main") {
+                    memory::set_webview_suspended(&webview, false);
+                }
                 memory::log_stats("restored", "info");
             }
         })
@@ -92,12 +100,28 @@ pub fn run() {
             WebviewWindowBuilder::from_config(app.handle(), &window_config)?
                 .data_directory(portable::webview_dir())
                 .build()?;
+            let memory_window = app.get_webview_window("main");
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(5)).await;
                 memory::log_stats("startup", "info");
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                if memory_window
+                    .as_ref()
+                    .is_some_and(|window| !window.is_minimized().unwrap_or(false))
+                {
+                    logger::log("info", "memory", "idle-trim after startup");
+                    memory::trim_working_set("idle", "info");
+                }
                 loop {
                     tokio::time::sleep(Duration::from_secs(60)).await;
                     memory::log_stats("periodic", "debug");
+                    if let Some(window) = &memory_window {
+                        if !window.is_minimized().unwrap_or(false)
+                            && !window.is_focused().unwrap_or(false)
+                        {
+                            memory::trim_working_set("background", "debug");
+                        }
+                    }
                 }
             });
             tauri::async_runtime::spawn(async move {

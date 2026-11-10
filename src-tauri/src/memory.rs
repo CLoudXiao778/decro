@@ -170,7 +170,7 @@ mod imp {
         crate::logger::log(level, "memory", &summary(tag));
     }
 
-    pub fn trim_working_set() {
+    pub fn trim_working_set(tag: &str, level: &str) {
         let lock = LAST_TRIM.get_or_init(|| Mutex::new(None));
         if let Ok(mut last) = lock.lock() {
             if last.is_some_and(|at| at.elapsed() < Duration::from_secs(8)) {
@@ -179,7 +179,7 @@ mod imp {
             *last = Some(Instant::now());
         }
 
-        log_stats("before-trim", "info");
+        log_stats(&format!("{tag}-before"), level);
         let current = std::process::id();
         unsafe {
             let current_handle = GetCurrentProcess();
@@ -202,7 +202,7 @@ mod imp {
                 CloseHandle(handle);
             }
         }
-        log_stats("after-trim", "info");
+        log_stats(&format!("{tag}-after"), level);
     }
 }
 
@@ -213,4 +213,29 @@ pub use imp::{log_stats, trim_working_set};
 pub fn log_stats(_tag: &str, _level: &str) {}
 
 #[cfg(not(target_os = "windows"))]
-pub fn trim_working_set() {}
+pub fn trim_working_set(_tag: &str, _level: &str) {}
+
+#[cfg(target_os = "windows")]
+pub fn set_webview_suspended(window: &tauri::WebviewWindow, suspended: bool) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
+    use windows_core::Interface;
+
+    let _ = window.with_webview(move |webview| {
+        let controller = webview.controller();
+        let core = unsafe { controller.CoreWebView2() };
+        let Ok(core) = core else { return };
+        let Ok(core3) = core.cast::<ICoreWebView2_3>() else {
+            return;
+        };
+        unsafe {
+            if suspended {
+                let _ = core3.TrySuspend(None);
+            } else {
+                let _ = core3.Resume();
+            }
+        }
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn set_webview_suspended(_window: &tauri::WebviewWindow, _suspended: bool) {}
