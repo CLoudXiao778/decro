@@ -1276,21 +1276,39 @@ kbd {
   position: relative;
   height: 248px;
   margin-top: 24px;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  touch-action: pan-y;
   mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 78%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 78%, transparent 100%);
 }
+.player-lyrics::-webkit-scrollbar {
+  display: none;
+}
 .player-lyrics__inner {
   padding: 82px 0;
-  transition: transform 450ms var(--ease-emphasized);
-  will-change: transform;
 }
 .player-lyric {
   padding: 7px 0;
+  border-radius: 10px;
+  cursor: pointer;
   opacity: 0.34;
   transition:
     opacity 220ms var(--ease-standard),
-    transform 220ms var(--ease-standard);
+    transform 220ms var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+.player-lyric:hover {
+  opacity: 0.62;
+  background: rgba(255, 255, 255, 0.035);
+}
+[data-theme="light"] .player-lyric:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+.player-lyric:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 2px;
 }
 .player-lyric p {
   color: #fff;
@@ -1668,8 +1686,8 @@ kbd {
   .player-cover {
     transition: opacity 120ms linear;
   }
-  .player-lyrics__inner {
-    transition: none;
+  .player-lyrics {
+    scroll-behavior: auto;
   }
   .ambient__blob,
   .player-backdrop__blob,

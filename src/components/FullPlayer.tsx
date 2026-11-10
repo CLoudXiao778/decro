@@ -138,6 +138,8 @@ export function FullPlayer(props: {
   let clone!: HTMLDivElement;
   let lyricsViewport!: HTMLDivElement;
   let lyricsInner!: HTMLDivElement;
+  let lyricsFollowPaused = false;
+  let lyricsResumeTimer: number | undefined;
   let cloneAnim: Animation | null = null;
   let controlClones: {
     wrapper: HTMLDivElement;
@@ -508,27 +510,46 @@ export function FullPlayer(props: {
     if (!lyricsViewport || !lyricsInner) return;
     const line = lyricsInner.children[activeIndex()] as HTMLElement | undefined;
     if (!line) return;
+    const max = Math.max(0, lyricsViewport.scrollHeight - lyricsViewport.clientHeight);
     const target = Math.max(
       0,
-      line.offsetTop - lyricsViewport.clientHeight / 2 + line.offsetHeight / 2,
+      Math.min(max, line.offsetTop - lyricsViewport.clientHeight / 2 + line.offsetHeight / 2),
     );
-    if (animate) {
-      lyricsInner.style.transform = `translate3d(0, ${-target}px, 0)`;
+    if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      lyricsViewport.scrollTo({ top: target, behavior: "smooth" });
       return;
     }
-    // Entering lyrics mode must jump straight to the current line. Otherwise
-    // the 450ms transition animates from the first line on every open.
-    lyricsInner.style.transition = "none";
-    lyricsInner.style.transform = `translate3d(0, ${-target}px, 0)`;
-    void lyricsInner.offsetHeight;
-    lyricsInner.style.transition = "";
+    // Entering lyrics mode / reduced motion must jump straight to the line.
+    const previous = lyricsViewport.style.scrollBehavior;
+    lyricsViewport.style.scrollBehavior = "auto";
+    lyricsViewport.scrollTop = target;
+    lyricsViewport.style.scrollBehavior = previous;
   };
 
+  const pauseLyricsFollow = () => {
+    lyricsFollowPaused = true;
+    window.clearTimeout(lyricsResumeTimer);
+    lyricsResumeTimer = window.setTimeout(() => {
+      lyricsFollowPaused = false;
+      if (lyricsFocus()) positionLyrics(true);
+    }, 5000);
+  };
+
+  const resumeLyricsFollow = () => {
+    lyricsFollowPaused = false;
+    window.clearTimeout(lyricsResumeTimer);
+  };
+
+  const seekToLyric = (time: number, index: number) => {
+    resumeLyricsFollow();
+    props.onSeek(time);
+    if (index === activeIndex()) positionLyrics(true);
+  };
 
   createEffect(on(
     activeIndex,
     () => {
-      if (!lyricsFocus() || !lyricsReady) return;
+      if (!lyricsFocus() || !lyricsReady || lyricsFollowPaused) return;
       positionLyrics(true);
     },
     { defer: true },
@@ -537,6 +558,7 @@ export function FullPlayer(props: {
   createEffect(on(
     () => `${props.track.id}:${props.track.lyrics.length}`,
     () => {
+      resumeLyricsFollow();
       if (!lyricsFocus()) return;
       lyricsReady = false;
       queueMicrotask(() => {
@@ -547,6 +569,13 @@ export function FullPlayer(props: {
     },
     { defer: true },
   ));
+
+  createEffect(() => {
+    if (!lyricsFocus()) {
+      resumeLyricsFollow();
+      lyricsReady = false;
+    }
+  });
 
   const toggleLyrics = () => {
     hideClone();
@@ -679,6 +708,7 @@ export function FullPlayer(props: {
     cloneAnim?.cancel();
     window.clearTimeout(fallbackTimer);
     window.clearTimeout(closeTimer);
+    window.clearTimeout(lyricsResumeTimer);
     hideControlClones();
     hideClone();
   });
@@ -879,6 +909,9 @@ export function FullPlayer(props: {
             <Show when={lyricsFocus()}>
               <div
                 class="player-lyrics"
+                onWheel={pauseLyricsFollow}
+                onPointerDown={pauseLyricsFollow}
+                onTouchStart={pauseLyricsFollow}
                 ref={(el) => {
                   lyricsViewport = el;
                   // Jump to the current line before the first paint. A
@@ -894,7 +927,20 @@ export function FullPlayer(props: {
                 <div class="player-lyrics__inner" ref={lyricsInner}>
                   <For each={props.track.lyrics}>
                     {(line, i) => (
-                      <div class="player-lyric" classList={{ "is-active": i() === activeIndex() }}>
+                      <div
+                        class="player-lyric"
+                        classList={{ "is-active": i() === activeIndex() }}
+                        role="button"
+                        tabindex="0"
+                        aria-label={`跳转到：${line.text}`}
+                        title="点击跳转到这句"
+                        onClick={() => seekToLyric(line.time, i())}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          seekToLyric(line.time, i());
+                        }}
+                      >
                         <p>{line.text}</p>
                         <Show when={props.showTranslation && line.translation}>
                           <p class="player-lyric__tr">{line.translation}</p>
