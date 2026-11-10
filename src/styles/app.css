@@ -1639,6 +1639,7 @@ kbd {
   border-radius: 22px;
   pointer-events: none;
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.38);
+  transform-origin: top left;
   will-change: transform, border-radius;
 }
 .morph-cover .cover-art {

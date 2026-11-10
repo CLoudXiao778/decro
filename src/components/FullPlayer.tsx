@@ -342,14 +342,15 @@ export function FullPlayer(props: {
     const sy = from.height / Math.max(1, to.height);
     const tx = from.left - to.left;
     const ty = from.top - to.top;
-    const fromRadius = Math.max(8, 16 / Math.max(0.01, sx));
+    const startRadius = (closing ? 24 : 16) / Math.max(0.01, sx);
+    const endRadius = closing ? 16 : 24;
     cloneAnim = clone.animate(
       [
         {
           transform: `translate3d(${tx}px, ${ty}px, 0) scale(${sx}, ${sy})`,
-          borderRadius: `${fromRadius}px`,
+          borderRadius: `${startRadius}px`,
         },
-        { transform: "translate3d(0,0,0) scale(1,1)", borderRadius: "24px" },
+        { transform: "translate3d(0,0,0) scale(1,1)", borderRadius: `${endRadius}px` },
       ],
       { duration, easing, fill: "both" },
     );
