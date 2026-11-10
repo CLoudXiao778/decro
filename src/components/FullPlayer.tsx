@@ -344,7 +344,7 @@ export function FullPlayer(props: {
     const ty = from.top - to.top;
     const startRadius = (closing ? 24 : 16) / Math.max(0.01, sx);
     const endRadius = closing ? 16 : 24;
-    cloneAnim = clone.animate(
+    const animation = clone.animate(
       [
         {
           transform: `translate3d(${tx}px, ${ty}px, 0) scale(${sx}, ${sy})`,
@@ -354,14 +354,13 @@ export function FullPlayer(props: {
       ],
       { duration, easing, fill: "both" },
     );
-    return cloneAnim.finished.then(
-      () => {
-        clone.style.visibility = "hidden";
-      },
-      () => {
-        clone.style.visibility = "hidden";
-      },
-    );
+    cloneAnim = animation;
+    const settle = () => {
+      // A newer open/close morph may have taken over while this animation was
+      // cancelled. Only the current animation is allowed to hide the clone.
+      if (cloneAnim === animation) clone.style.visibility = "hidden";
+    };
+    return animation.finished.then(settle, settle);
   }
 
   function openPlayer() {
@@ -469,12 +468,11 @@ export function FullPlayer(props: {
     if (from && to) {
       setHeroReady(false);
       runClone(from, to, true).then(() => {
+        if (props.open) return;
         hideClone();
-        if (!props.open) {
-          setVisible(false);
-          setHidden(true);
-          restoreFocus();
-        }
+        setVisible(false);
+        setHidden(true);
+        restoreFocus();
       });
       closeTimer = window.setTimeout(() => {
         hideClone();
