@@ -70,7 +70,7 @@ npm run tauri build -- --bundles nsis
   GitHub Release 会把空格转成点，资源名为 `Decro.Desktop_0.5.8_x64-setup.exe`，约 2.5 MiB）
 - `src-tauri/target/release/decro-desktop.exe`：portable 主程序
 - GitHub Actions 会额外生成 `Decro.Desktop_0.5.8_portable_x64.zip`
-  （只含 `Decro Desktop.exe` + `README.txt`，不含 `data\`）
+  （只含 `Decro Desktop.exe` + `README.txt`，不含 `data\`；0.5.8 实测 2.82 MiB）
 
 ### GitHub Actions（推荐）
 
@@ -137,7 +137,8 @@ data/
 | Tauri/Rust exe（strip + LTO + opt-level=z） | 4–6 MB |
 | Web 资源（JS/CSS/字体子集/图标） | 0.6–1.2 MB |
 | SQLite + libnetease + QR | 1.5–2.5 MB |
-| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.2.1 实测 1.83 MiB；0.3.0 实测 2.49 MiB；0.3.1 实测 2.49 MiB；0.3.2 实测 2.49 MiB；0.4.0 实测 2.49 MiB；0.4.1 实测 2.49 MiB；0.4.2 实测 2.49 MiB；0.4.3 实测 2.49 MiB；0.4.4 实测 2.49 MiB；0.4.5 实测 2.49 MiB；0.4.6 实测 2.49 MiB；0.4.7 实测 2.49 MiB；0.5.0 实测 2.51 MiB；0.5.1 实测 2.51 MiB；0.5.2 实测 2.51 MiB；0.5.3 实测 2.51 MiB；0.5.4 实测 2.51 MiB；0.5.5 实测 2.52 MiB；0.5.6 实测 2.52 MiB；0.5.7 实测 2.52 MiB；0.5.8 待测）** |
+| **NSIS 安装包** | **8–12 MB（上限 15 MB；0.2.1 实测 1.83 MiB；0.3.0 实测 2.49 MiB；0.3.1 实测 2.49 MiB；0.3.2 实测 2.49 MiB；0.4.0 实测 2.49 MiB；0.4.1 实测 2.49 MiB；0.4.2 实测 2.49 MiB；0.4.3 实测 2.49 MiB；0.4.4 实测 2.49 MiB；0.4.5 实测 2.49 MiB；0.4.6 实测 2.49 MiB；0.4.7 实测 2.49 MiB；0.5.0 实测 2.51 MiB；0.5.1 实测 2.51 MiB；0.5.2 实测 2.51 MiB；0.5.3 实测 2.51 MiB；0.5.4 实测 2.51 MiB；0.5.5 实测 2.52 MiB；0.5.6 实测 2.52 MiB；0.5.7 实测 2.52 MiB；0.5.8 实测 2.52 MiB；0.5.8 待测）** |
+| **Portable zip** | **约 2.8 MiB（0.5.8 实测 2.82 MiB，exe + README）** |
 | 安装后 | 20–35 MB |
 | WebView2 | 系统自带；缺失时引导安装 |
 | ONNX 人声分离 | 不打包；设置页已移除入口 |

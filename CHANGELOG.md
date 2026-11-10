@@ -22,6 +22,10 @@
 ### Release
 
 - 版本号 0.5.8；其余功能与 0.5.7 相同。
+- 发布 portable zip `Decro.Desktop_0.5.8_portable_x64.zip`，约 **2.82 MiB**（2,961,008 bytes），只含 exe 和 README，不含 `data\`。
+- SHA256（portable）：`da245cca5c962e7733984d7bbc0b1db58cb81424c7cca933e980ef4603268a27`。
+- 发布 Windows 10/11 x64 NSIS 安装包 `v0.5.8`，约 **2.52 MiB**（2,647,504 bytes），由 GitHub Actions `windows-latest` 构建；未签名。
+- SHA256（NSIS）：`8a1c4976fc077c746846e8fadc515bf581ecf99a3d4d14ec89c591da83ec40bf`。
 
 ## [Unreleased]
 

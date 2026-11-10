@@ -13,7 +13,7 @@ Cirro 原本是一个 Android 音乐播放器，设计上有很强的个人风�
 - **Windows 10/11 x64 便携版（推荐）**：[Decro Desktop 0.5.8 portable .zip](https://github.com/CLoudXiao778/decro/releases/download/v0.5.8/Decro.Desktop_0.5.8_portable_x64.zip)
   - 解压即用；数据保存在 exe 同目录的 `data\`，升级只覆盖 exe。
 - **Windows 10/11 x64 安装包**：[Decro Desktop 0.5.8 (NSIS .exe)](https://github.com/CLoudXiao778/decro/releases/download/v0.5.8/Decro.Desktop_0.5.8_x64-setup.exe)
-- 未签名，首次运行可能触发 SmartScreen 提示；依赖系统 WebView2（Windows 11 自带，较新的 Windows 10 通常已随 Edge 安装）。
+- 便携包约 **2.82 MiB**；NSIS 安装包约 **2.52 MiB**。未签名，首次运行可能触发 SmartScreen 提示；依赖系统 WebView2（Windows 11 自带，较新的 Windows 10 通常已随 Edge 安装）。
 - 这是 **0.5.8 版本**：改为 portable 数据目录，新增上次播放/音量记忆，并修正音质显示。
 
 ### Portable 数据目录与升级
