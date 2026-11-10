@@ -30,6 +30,16 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: Point npm at the public registry
+        shell: pwsh
+        run: |
+          # npmmirror occasionally returns 504 for tarballs on GitHub runners.
+          # The committed lockfile keeps the China mirror for local installs;
+          # CI rewrites only its own checkout to the public npm registry.
+          npm config set registry https://registry.npmjs.org
+          npm config set replace-registry-host always
+          (Get-Content package-lock.json -Raw) -replace 'https://registry\.npmmirror\.com','https://registry.npmjs.org' | Set-Content package-lock.json -NoNewline
+
       - name: Install frontend dependencies
         run: npm ci
 
