@@ -624,6 +624,11 @@ export function FullPlayer(props: {
     else props.onToast("这首歌曲没有专辑信息");
   };
 
+  const displayedQuality = () =>
+    props.quality === "auto"
+      ? props.track.quality ?? "标准"
+      : qualityLabel(props.quality);
+
   const canOpenSong = () => /^\d+$/.test(props.track.id);
 
   const openComments = () => {
@@ -989,7 +994,7 @@ export function FullPlayer(props: {
                   </Show>
                 </p>
                 <div class="player-cover-copy__meta">
-                  <span>{props.track.quality ?? "SQ"}</span>
+                  <span title="当前请求音质；不可用时自动回退">{displayedQuality()}</span>
                   <span>·</span>
                   <span>网易云音乐</span>
                 </div>
