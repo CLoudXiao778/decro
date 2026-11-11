@@ -127,18 +127,26 @@ function readLastPlayback(): StoredPlayback | null {
     const queue = Array.isArray(data.queue)
       ? data.queue.filter(isStoredTrack)
       : [];
-    const storedProgress = Number(localStorage.getItem(LAST_PROGRESS_KEY));
-    const progressValue =
-      Number.isFinite(storedProgress) && storedProgress >= 0
-        ? storedProgress
-        : typeof data.progress === "number" && Number.isFinite(data.progress)
-          ? data.progress
-          : 0;
+    let storedProgress = 0;
+    try {
+      const raw = localStorage.getItem(LAST_PROGRESS_KEY);
+      const parsed = raw ? (JSON.parse(raw) as { id?: string; progress?: number }) : null;
+      if (
+        parsed?.id === data.track.id &&
+        typeof parsed.progress === "number" &&
+        Number.isFinite(parsed.progress) &&
+        parsed.progress >= 0
+      ) {
+        storedProgress = parsed.progress;
+      }
+    } catch {
+      /* ignore malformed progress */
+    }
     const progress = Math.max(
       0,
       Math.min(
-        progressValue,
-        data.track.durationSec > 0 ? data.track.durationSec : progressValue,
+        storedProgress,
+        data.track.durationSec > 0 ? data.track.durationSec : storedProgress,
       ),
     );
     return {
@@ -269,7 +277,6 @@ export default function App() {
           track,
           queue: snapshot,
           index,
-          progress: Math.max(0, progress()),
           sourceId: playSourceId,
         }),
       );
@@ -280,7 +287,10 @@ export default function App() {
 
   const saveLastProgress = () => {
     try {
-      localStorage.setItem(LAST_PROGRESS_KEY, String(Math.max(0, progress())));
+      localStorage.setItem(
+        LAST_PROGRESS_KEY,
+        JSON.stringify({ id: current().id, progress: Math.max(0, progress()) }),
+      );
     } catch {
       /* localStorage may be unavailable */
     }
@@ -1021,8 +1031,11 @@ export default function App() {
     });
     const applyPendingSeek = () => {
       if (!audio || pendingSeek === null) return;
-      const target = pendingSeek;
+      let target = pendingSeek;
       pendingSeek = null;
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        target = Math.min(target, Math.max(0, audio.duration - 0.25));
+      }
       try {
         audio.currentTime = target;
       } catch {
