@@ -190,6 +190,14 @@ export function FullPlayer(props: {
     };
   }
 
+  function refreshSourceRects(): { dock: Rect | null; cover: Rect | null } {
+    const rects = readRects();
+    if (rects.dock) setSourceDock(rects.dock);
+    if (rects.cover) setSourceCover(rects.cover);
+    setSourceControls(readDockControls());
+    return rects;
+  }
+
   function radiusPx(element: HTMLElement, rect: Rect): number {
     const raw = getComputedStyle(element).borderTopLeftRadius;
     if (raw.endsWith("%")) {
@@ -372,10 +380,7 @@ export function FullPlayer(props: {
     setMenuOpen(false);
     setHidden(false);
     hideControlClones();
-    const rects = readRects();
-    setSourceDock(rects.dock);
-    setSourceCover(rects.cover);
-    setSourceControls(readDockControls());
+    const rects = refreshSourceRects();
     setControlsReady(false);
     setPreparing(true);
     setExpanded(false);
@@ -460,6 +465,11 @@ export function FullPlayer(props: {
     setMenuOpen(false);
     if (!visible() || closing) return;
     closing = true;
+    // The window may have been maximized/restored or resized while the player
+    // was open, so the dock rects captured at open time are stale. Re-measure
+    // before starting the reverse morph; otherwise the panel and cover fly to
+    // the old dock position (e.g. the middle of a maximized window).
+    refreshSourceRects();
     setControlsReady(false);
     void runControlMorph(true);
     // Reverse of open: fly the real player cover back to the dock, not the
@@ -698,6 +708,24 @@ export function FullPlayer(props: {
     if (!menuOpen()) setQualityMenuOpen(false);
   });
 
+  onMount(() => {
+    // Keep the cached dock rects valid while the player is open. Resizing or
+    // maximizing the window moves the dock; the close morph must land there.
+    // Coalesce resize bursts into one measurement per frame.
+    let frame = 0;
+    const refresh = () => {
+      if (!props.open || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (props.open) refreshSourceRects();
+      });
+    };
+    window.addEventListener("resize", refresh);
+    onCleanup(() => {
+      window.removeEventListener("resize", refresh);
+      if (frame) cancelAnimationFrame(frame);
+    });
+  });
   onMount(() => window.addEventListener("keydown", onKey));
   onMount(() => {
     const closeMenu = (event: PointerEvent) => {
