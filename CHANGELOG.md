@@ -2,7 +2,9 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与语义化版本。
 
-## [Unreleased]
+## [0.5.9] - 2026-11-12
+
+修复窗口最大化后播放页收起动画的落点，并继续降低内存占用。
 
 ### Added
 
